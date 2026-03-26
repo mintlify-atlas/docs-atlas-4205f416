@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "Parkontrol",
+  "projectType": "saas",
+  "projectName": "Parkontrol",
+  "projectDescription": "A full-stack parking lot management platform that enables companies to control parking spaces, manage reservations, process payments, and generate invoices through role-based dashboards for administrators and operators.",
   "theme": "almond",
-  "colors": {
-    "primary": "#1A73E8",
-    "light": "#E8F0FE",
-    "dark": "#0D47A1"
-  },
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/OnemaYepes/parkontrol_web-main"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/OnemaYepes/parkontrol_web-main"
-    }
-  },
+  "primaryColor": "#1A73E8",
+  "lightColor": "#E8F0FE",
+  "darkColor": "#0D47A1",
   "navigation": {
     "tabs": [
       {
@@ -75,8 +63,7 @@
             "pages": [
               "api/parking-lots",
               "api/cells",
-              "api/vehicles",
-              "api/users"
+              "api/vehicles"
             ]
           },
           {
@@ -91,12 +78,46 @@
             "group": "Invoicing & Reports",
             "pages": [
               "api/invoicing",
-              "api/reports",
-              "api/views"
+              "api/reports"
             ]
           }
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "Role-based access control with Administrator and Operator roles",
+    "Multi-company parking lot management with cell-level space tracking",
+    "Real-time parking cell state management with sensor integration",
+    "Reservation lifecycle management (create, finalize, query)",
+    "Payment processing with multiple methods (cash, card, transfer)",
+    "Electronic invoicing and billing client management",
+    "Reporting and analytics per parking lot",
+    "JWT-based authentication with NestJS backend",
+    "Angular Material UI with responsive dashboards",
+    "Oracle Database integration via TypeORM"
+  ],
+  "publicApiSurface": [
+    "POST /api/auth/register",
+    "POST /api/auth/login",
+    "POST /api/parking-lots",
+    "GET /api/parking-lots/empresa/:idEmpresa",
+    "GET /api/parking-lots/:id",
+    "POST /api/cells",
+    "GET /api/cells/parqueadero/:idParqueadero",
+    "PATCH /api/cells/:id/estado",
+    "POST /api/reservations",
+    "PATCH /api/reservations/:id/finalizar",
+    "GET /api/reservations/activas",
+    "POST /api/payments",
+    "GET /api/payments/parqueadero/:idParqueadero",
+    "POST /api/rates",
+    "PATCH /api/rates/:id",
+    "POST /api/invoicing/facturas",
+    "POST /api/invoicing/clientes",
+    "POST /api/reports",
+    "GET /api/reports/parqueadero/:idParqueadero",
+    "POST /api/users",
+    "DELETE /api/users/:id"
+  ]
 }

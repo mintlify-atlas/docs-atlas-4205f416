@@ -1,0 +1,306 @@
+---
+title: Payments
+description: Create and retrieve payment records linked to finalized reservations.
+---
+
+A payment records the amount charged for a completed parking session. The amount is calculated automatically from the reservation's duration and the rate configured for the vehicle type at that parking lot.
+
+<Note>
+  Creating a payment automatically finalizes the associated reservation if it is still `ABIERTA`. You do not need to call `PATCH /api/reservations/:id/finalizar` separately — the payment endpoint handles that internally. The reservation must be in state `ABIERTA` when the payment request is made; payments cannot be created for already-closed reservations that were finalized without a payment.
+</Note>
+
+---
+
+## POST /api/payments
+
+Creates a payment for an open reservation. The service finalizes the reservation, calculates the amount based on the applicable rate, and persists the payment record.
+
+**How the amount is calculated:**  
+The service looks up the `Tarifa` matching the parking lot and vehicle type. For the first hour (or any fraction thereof), `precioFraccionHora` applies. Each additional hour after the first is charged at `precioHoraAdicional` (falls back to `precioFraccionHora` if not set). Duration is rounded up to the nearest whole hour.
+
+**Request body**
+
+<ParamField body="idReserva" type="number" required>
+  ID of the reservation to pay. Must be in state `ABIERTA`.
+</ParamField>
+
+<ParamField body="idMetodoPago" type="number" required>
+  ID of the payment method. Seeded values: `1` = `EFECTIVO`, `2` = `TARJETA`, `3` = `TRANSFERENCIA`.
+</ParamField>
+
+**Response**
+
+Returns the created payment object. HTTP status `201 Created`.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the payment.
+</ResponseField>
+
+<ResponseField name="monto" type="number">
+  Total amount charged, calculated from duration and rate. Two decimal places.
+</ResponseField>
+
+<ResponseField name="fechaPago" type="string">
+  ISO 8601 timestamp recorded at the moment of payment creation.
+</ResponseField>
+
+<ResponseField name="reserva" type="object">
+  The finalized reservation linked to this payment.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Reservation identifier.</ResponseField>
+    <ResponseField name="fechaEntrada" type="string">Entry timestamp.</ResponseField>
+    <ResponseField name="fechaSalida" type="string">Exit timestamp, set during payment processing.</ResponseField>
+    <ResponseField name="estado" type="string">Always `CERRADA` after payment.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="metodoPago" type="object">
+  The payment method used.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Payment method identifier.</ResponseField>
+    <ResponseField name="nombre" type="string">`EFECTIVO`, `TARJETA`, or `TRANSFERENCIA`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example**
+
+```bash
+curl -X POST http://localhost:3000/api/payments \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idReserva": 42,
+    "idMetodoPago": 1
+  }'
+```
+
+```json
+{
+  "id": 15,
+  "monto": 8500,
+  "fechaPago": "2024-03-15T11:45:05.000Z",
+  "reserva": {
+    "id": 42,
+    "fechaEntrada": "2024-03-15T09:30:00.000Z",
+    "fechaSalida": "2024-03-15T11:45:00.000Z",
+    "estado": "CERRADA"
+  },
+  "metodoPago": {
+    "id": 1,
+    "nombre": "EFECTIVO"
+  }
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `400 Bad Request` | Reservation is not in state `ABIERTA` |
+| `400 Bad Request` | A payment already exists for this reservation |
+| `404 Not Found` | Reservation ID does not exist |
+| `404 Not Found` | Payment method ID does not exist |
+| `404 Not Found` | No rate configured for this parking lot and vehicle type |
+
+---
+
+## GET /api/payments/parqueadero/:idParqueadero
+
+Returns all payments for reservations belonging to a specific parking lot, ordered by `fechaPago` descending.
+
+**Path parameters**
+
+<ParamField path="idParqueadero" type="number" required>
+  ID of the parking lot.
+</ParamField>
+
+**Response**
+
+Returns an array of payment objects. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Payment identifier.
+</ResponseField>
+
+<ResponseField name="monto" type="number">
+  Amount charged.
+</ResponseField>
+
+<ResponseField name="fechaPago" type="string">
+  Payment timestamp.
+</ResponseField>
+
+<ResponseField name="reserva" type="object">
+  Reservation object including nested `vehiculo`.
+</ResponseField>
+
+<ResponseField name="metodoPago" type="object">
+  Payment method object with `id` and `nombre`.
+</ResponseField>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/payments/parqueadero/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+[
+  {
+    "id": 15,
+    "monto": 8500,
+    "fechaPago": "2024-03-15T11:45:05.000Z",
+    "reserva": {
+      "id": 42,
+      "fechaEntrada": "2024-03-15T09:30:00.000Z",
+      "fechaSalida": "2024-03-15T11:45:00.000Z",
+      "estado": "CERRADA",
+      "vehiculo": { "id": 3, "placa": "ABC123" }
+    },
+    "metodoPago": { "id": 1, "nombre": "EFECTIVO" }
+  }
+]
+```
+
+---
+
+## GET /api/payments/reserva/:idReserva
+
+Returns the payment for a specific reservation. Since each reservation can have at most one payment, this endpoint returns a single object.
+
+**Path parameters**
+
+<ParamField path="idReserva" type="number" required>
+  ID of the reservation whose payment to retrieve.
+</ParamField>
+
+**Response**
+
+Returns a single payment object. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Payment identifier.
+</ResponseField>
+
+<ResponseField name="monto" type="number">
+  Amount charged.
+</ResponseField>
+
+<ResponseField name="fechaPago" type="string">
+  Payment timestamp.
+</ResponseField>
+
+<ResponseField name="reserva" type="object">
+  The linked reservation object.
+</ResponseField>
+
+<ResponseField name="metodoPago" type="object">
+  Payment method object with `id` and `nombre`.
+</ResponseField>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/payments/reserva/42 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+{
+  "id": 15,
+  "monto": 8500,
+  "fechaPago": "2024-03-15T11:45:05.000Z",
+  "reserva": {
+    "id": 42,
+    "fechaEntrada": "2024-03-15T09:30:00.000Z",
+    "fechaSalida": "2024-03-15T11:45:00.000Z",
+    "estado": "CERRADA"
+  },
+  "metodoPago": { "id": 1, "nombre": "EFECTIVO" }
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `404 Not Found` | No payment found for that reservation ID |
+
+---
+
+## GET /api/payments/:id
+
+Returns a single payment by its ID, with full nested relations including the reservation's vehicle and cell.
+
+**Path parameters**
+
+<ParamField path="id" type="number" required>
+  ID of the payment to retrieve.
+</ParamField>
+
+**Response**
+
+Returns a single payment object. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Payment identifier.
+</ResponseField>
+
+<ResponseField name="monto" type="number">
+  Amount charged.
+</ResponseField>
+
+<ResponseField name="fechaPago" type="string">
+  Payment timestamp.
+</ResponseField>
+
+<ResponseField name="reserva" type="object">
+  Full reservation object including nested `vehiculo` and `celda`.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Reservation identifier.</ResponseField>
+    <ResponseField name="fechaEntrada" type="string">Entry timestamp.</ResponseField>
+    <ResponseField name="fechaSalida" type="string">Exit timestamp.</ResponseField>
+    <ResponseField name="estado" type="string">Reservation state.</ResponseField>
+    <ResponseField name="vehiculo" type="object">Vehicle object with `id` and `placa`.</ResponseField>
+    <ResponseField name="celda" type="object">Cell object with `id` and `estado`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="metodoPago" type="object">
+  Payment method used.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Payment method identifier.</ResponseField>
+    <ResponseField name="nombre" type="string">`EFECTIVO`, `TARJETA`, or `TRANSFERENCIA`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/payments/15 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+{
+  "id": 15,
+  "monto": 8500,
+  "fechaPago": "2024-03-15T11:45:05.000Z",
+  "reserva": {
+    "id": 42,
+    "fechaEntrada": "2024-03-15T09:30:00.000Z",
+    "fechaSalida": "2024-03-15T11:45:00.000Z",
+    "estado": "CERRADA",
+    "vehiculo": { "id": 3, "placa": "ABC123" },
+    "celda": { "id": 7, "estado": "LIBRE" }
+  },
+  "metodoPago": { "id": 1, "nombre": "EFECTIVO" }
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `404 Not Found` | No payment with that ID exists |

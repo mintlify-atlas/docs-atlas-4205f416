@@ -1,0 +1,341 @@
+---
+title: Reports
+description: Create and retrieve parking lot financial reports.
+---
+
+The reports system generates and stores periodic financial reports (`Reporte`) for parking lots. Each report belongs to a `Parqueadero` (parking lot) and a `Periodo` (time period), and optionally holds a URL pointing to the generated report file (e.g. a PDF or spreadsheet stored in cloud storage).
+
+<Tip>
+  After creating a report record, upload the generated file to your storage provider and then call `PATCH /api/reports/:id/url` to attach the file URL to the report.
+</Tip>
+
+---
+
+## POST /api/reports
+
+Creates a new report record for a parking lot and period.
+
+```
+POST /api/reports
+```
+
+### Request body
+
+<ParamField body="idParqueadero" type="number" required>
+  ID of the parking lot the report belongs to.
+</ParamField>
+
+<ParamField body="idPeriodo" type="number" required>
+  ID of the time period the report covers (references the `Periodo` entity).
+</ParamField>
+
+<ParamField body="urlArchivo" type="string">
+  Optional URL of the generated report file. Up to 255 characters. Can be set later via `PATCH /api/reports/:id/url`.
+</ParamField>
+
+### Response
+
+Returns the created `Reporte`. HTTP status `201 Created`.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the report.
+</ResponseField>
+
+<ResponseField name="urlArchivo" type="string">
+  URL of the report file, or `null` if not yet set.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="object">
+  The parking lot this report belongs to.
+  <Expandable title="parqueadero fields">
+    <ResponseField name="id" type="number">
+      Parking lot ID.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="periodo" type="object">
+  The time period this report covers.
+  <Expandable title="periodo fields">
+    <ResponseField name="id" type="number">
+      Period ID.
+    </ResponseField>
+    <ResponseField name="nombre" type="string">
+      Period name (e.g. `"Enero 2025"`).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example request
+
+```bash
+curl -X POST http://localhost:3000/api/reports \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "idParqueadero": 2,
+    "idPeriodo": 5
+  }'
+```
+
+### Example response
+
+```json
+{
+  "id": 12,
+  "urlArchivo": null,
+  "parqueadero": {
+    "id": 2
+  },
+  "periodo": {
+    "id": 5,
+    "nombre": "Marzo 2025"
+  }
+}
+```
+
+### Error cases
+
+| Status | Cause |
+| --- | --- |
+| `400 Bad Request` | A required field is missing or fails validation |
+| `404 Not Found` | No parking lot exists with the given `idParqueadero`, or no period exists with the given `idPeriodo` |
+
+---
+
+## GET /api/reports/parqueadero/:idParqueadero
+
+Returns all reports for a specific parking lot, ordered from newest to oldest.
+
+```
+GET /api/reports/parqueadero/:idParqueadero
+```
+
+### Path parameters
+
+<ParamField path="idParqueadero" type="number" required>
+  ID of the parking lot whose reports you want to retrieve.
+</ParamField>
+
+### Response
+
+Returns an array of `Reporte` objects with `parqueadero` and `periodo` relations populated, ordered by `id` descending. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the report.
+</ResponseField>
+
+<ResponseField name="urlArchivo" type="string">
+  URL of the report file, or `null` if not yet set.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="object">
+  The parking lot this report belongs to.
+  <Expandable title="parqueadero fields">
+    <ResponseField name="id" type="number">
+      Parking lot ID.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="periodo" type="object">
+  The time period this report covers.
+  <Expandable title="periodo fields">
+    <ResponseField name="id" type="number">
+      Period ID.
+    </ResponseField>
+    <ResponseField name="nombre" type="string">
+      Period name.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example request
+
+```bash
+curl http://localhost:3000/api/reports/parqueadero/2 \
+  -H "Authorization: Bearer <token>"
+```
+
+### Example response
+
+```json
+[
+  {
+    "id": 12,
+    "urlArchivo": "https://storage.example.com/reports/parqueadero-2-marzo-2025.pdf",
+    "parqueadero": { "id": 2 },
+    "periodo": { "id": 5, "nombre": "Marzo 2025" }
+  },
+  {
+    "id": 9,
+    "urlArchivo": "https://storage.example.com/reports/parqueadero-2-febrero-2025.pdf",
+    "parqueadero": { "id": 2 },
+    "periodo": { "id": 4, "nombre": "Febrero 2025" }
+  }
+]
+```
+
+---
+
+## GET /api/reports/:id
+
+Retrieves a single report by its ID.
+
+```
+GET /api/reports/:id
+```
+
+### Path parameters
+
+<ParamField path="id" type="number" required>
+  ID of the report to retrieve.
+</ParamField>
+
+### Response
+
+Returns the `Reporte` with `parqueadero` and `periodo` relations populated. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the report.
+</ResponseField>
+
+<ResponseField name="urlArchivo" type="string">
+  URL of the report file, or `null` if not yet set.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="object">
+  The parking lot this report belongs to.
+  <Expandable title="parqueadero fields">
+    <ResponseField name="id" type="number">
+      Parking lot ID.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="periodo" type="object">
+  The time period this report covers.
+  <Expandable title="periodo fields">
+    <ResponseField name="id" type="number">
+      Period ID.
+    </ResponseField>
+    <ResponseField name="nombre" type="string">
+      Period name.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example request
+
+```bash
+curl http://localhost:3000/api/reports/12 \
+  -H "Authorization: Bearer <token>"
+```
+
+### Example response
+
+```json
+{
+  "id": 12,
+  "urlArchivo": "https://storage.example.com/reports/parqueadero-2-marzo-2025.pdf",
+  "parqueadero": { "id": 2 },
+  "periodo": { "id": 5, "nombre": "Marzo 2025" }
+}
+```
+
+### Error cases
+
+| Status | Cause |
+| --- | --- |
+| `404 Not Found` | No report exists with the given `id` |
+
+```json
+{
+  "statusCode": 404,
+  "message": "No existe reporte con id: 12",
+  "error": "Not Found"
+}
+```
+
+---
+
+## PATCH /api/reports/:id/url
+
+Updates the file URL for a report. Use this after uploading a generated report file to attach its public URL.
+
+```
+PATCH /api/reports/:id/url
+```
+
+### Path parameters
+
+<ParamField path="id" type="number" required>
+  ID of the report to update.
+</ParamField>
+
+### Request body
+
+<ParamField body="urlArchivo" type="string" required>
+  The URL of the uploaded report file. Up to 255 characters.
+</ParamField>
+
+### Response
+
+Returns the updated `Reporte`. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the report.
+</ResponseField>
+
+<ResponseField name="urlArchivo" type="string">
+  The updated file URL.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="object">
+  The parking lot this report belongs to.
+  <Expandable title="parqueadero fields">
+    <ResponseField name="id" type="number">
+      Parking lot ID.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="periodo" type="object">
+  The time period this report covers.
+  <Expandable title="periodo fields">
+    <ResponseField name="id" type="number">
+      Period ID.
+    </ResponseField>
+    <ResponseField name="nombre" type="string">
+      Period name.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example request
+
+```bash
+curl -X PATCH http://localhost:3000/api/reports/12/url \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <token>" \
+  -d '{
+    "urlArchivo": "https://storage.example.com/reports/parqueadero-2-marzo-2025.pdf"
+  }'
+```
+
+### Example response
+
+```json
+{
+  "id": 12,
+  "urlArchivo": "https://storage.example.com/reports/parqueadero-2-marzo-2025.pdf",
+  "parqueadero": { "id": 2 },
+  "periodo": { "id": 5, "nombre": "Marzo 2025" }
+}
+```
+
+### Error cases
+
+| Status | Cause |
+| --- | --- |
+| `404 Not Found` | No report exists with the given `id` |

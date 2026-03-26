@@ -1,0 +1,408 @@
+---
+title: Reservations
+description: Create, retrieve, and finalize parking reservations.
+---
+
+Reservations track a vehicle's occupancy of a parking cell from entry to exit. Each reservation is linked to a specific vehicle and cell, and transitions through two states during its lifetime.
+
+<Note>
+  **Reservation lifecycle:** A reservation starts in state `ABIERTA` (open) when created. When the vehicle exits, the reservation is finalized via `PATCH /api/reservations/:id/finalizar`, which sets the state to `CERRADA` (closed), records the exit timestamp, and marks the cell as `LIBRE` again. A payment can only be created after this transition.
+</Note>
+
+---
+
+## POST /api/reservations
+
+Creates a new reservation for a vehicle occupying a parking cell. The cell must be in state `LIBRE`; the service automatically marks it `OCUPADA` upon creation.
+
+**Request body**
+
+<ParamField body="idVehiculo" type="number" required>
+  ID of the vehicle entering the parking lot.
+</ParamField>
+
+<ParamField body="idCelda" type="number" required>
+  ID of the cell to assign to the vehicle. Must be in state `LIBRE`.
+</ParamField>
+
+<ParamField body="estado" type="string" required>
+  Initial state of the reservation. Must be `ABIERTA`.
+</ParamField>
+
+**Response**
+
+Returns the created reservation object. HTTP status `201 Created`.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the reservation.
+</ResponseField>
+
+<ResponseField name="fechaEntrada" type="string">
+  ISO 8601 timestamp set automatically at the moment of creation.
+</ResponseField>
+
+<ResponseField name="fechaSalida" type="string | null">
+  Exit timestamp. `null` while the reservation is `ABIERTA`.
+</ResponseField>
+
+<ResponseField name="estado" type="string">
+  Reservation state. `ABIERTA` on creation.
+</ResponseField>
+
+<ResponseField name="vehiculo" type="object">
+  The vehicle associated with this reservation.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Unique vehicle identifier.</ResponseField>
+    <ResponseField name="placa" type="string">License plate.</ResponseField>
+    <ResponseField name="tipoVehiculo" type="object">Vehicle type object with `id` and `nombre`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="celda" type="object">
+  The parking cell assigned to this reservation.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Unique cell identifier.</ResponseField>
+    <ResponseField name="estado" type="string">Cell state, set to `OCUPADA` after creation.</ResponseField>
+    <ResponseField name="parqueadero" type="object">Parking lot object with `id` and `nombre`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example**
+
+```bash
+curl -X POST http://localhost:3000/api/reservations \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idVehiculo": 3,
+    "idCelda": 7,
+    "estado": "ABIERTA"
+  }'
+```
+
+```json
+{
+  "id": 42,
+  "fechaEntrada": "2024-03-15T09:30:00.000Z",
+  "fechaSalida": null,
+  "estado": "ABIERTA",
+  "vehiculo": {
+    "id": 3,
+    "placa": "ABC123",
+    "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+  },
+  "celda": {
+    "id": 7,
+    "estado": "OCUPADA",
+    "parqueadero": { "id": 1, "nombre": "Parqueadero Central" }
+  }
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `400 Bad Request` | The cell is not in state `LIBRE` |
+| `404 Not Found` | Vehicle or cell ID does not exist |
+
+---
+
+## PATCH /api/reservations/:id/finalizar
+
+Finalizes an open reservation. Sets `fechaSalida` to the current timestamp, transitions the state to `CERRADA`, and releases the cell back to `LIBRE`. This must be called before a payment can be created for the reservation.
+
+<Warning>
+  A reservation can only be finalized once. Calling this endpoint on a reservation that already has a `fechaSalida` returns a `400 Bad Request` error.
+</Warning>
+
+**Path parameters**
+
+<ParamField path="id" type="number" required>
+  ID of the reservation to finalize.
+</ParamField>
+
+**Request body**
+
+No request body required.
+
+**Response**
+
+Returns the updated reservation object. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Reservation identifier.
+</ResponseField>
+
+<ResponseField name="fechaEntrada" type="string">
+  Original entry timestamp.
+</ResponseField>
+
+<ResponseField name="fechaSalida" type="string">
+  Exit timestamp set at the moment of finalization.
+</ResponseField>
+
+<ResponseField name="estado" type="string">
+  Updated state. Always `CERRADA` after a successful call.
+</ResponseField>
+
+<ResponseField name="vehiculo" type="object">
+  The vehicle associated with this reservation.
+</ResponseField>
+
+<ResponseField name="celda" type="object">
+  The cell, now back in state `LIBRE`.
+</ResponseField>
+
+**Example**
+
+```bash
+curl -X PATCH http://localhost:3000/api/reservations/42/finalizar \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+{
+  "id": 42,
+  "fechaEntrada": "2024-03-15T09:30:00.000Z",
+  "fechaSalida": "2024-03-15T11:45:00.000Z",
+  "estado": "CERRADA",
+  "vehiculo": {
+    "id": 3,
+    "placa": "ABC123",
+    "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+  },
+  "celda": {
+    "id": 7,
+    "estado": "LIBRE",
+    "parqueadero": { "id": 1, "nombre": "Parqueadero Central" }
+  }
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `400 Bad Request` | Reservation already has a `fechaSalida` (already closed) |
+| `404 Not Found` | Reservation ID does not exist |
+
+---
+
+## GET /api/reservations/activas
+
+Returns all reservations currently in state `ABIERTA`, across all parking lots. Useful for a global occupancy overview.
+
+**Response**
+
+Returns an array of reservation objects. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Reservation identifier.
+</ResponseField>
+
+<ResponseField name="fechaEntrada" type="string">
+  Entry timestamp.
+</ResponseField>
+
+<ResponseField name="fechaSalida" type="string | null">
+  Always `null` for active reservations.
+</ResponseField>
+
+<ResponseField name="estado" type="string">
+  Always `ABIERTA` in this response.
+</ResponseField>
+
+<ResponseField name="vehiculo" type="object">
+  Vehicle object including nested `tipoVehiculo`.
+</ResponseField>
+
+<ResponseField name="celda" type="object">
+  Cell object including nested `parqueadero`.
+</ResponseField>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/reservations/activas \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+[
+  {
+    "id": 42,
+    "fechaEntrada": "2024-03-15T09:30:00.000Z",
+    "fechaSalida": null,
+    "estado": "ABIERTA",
+    "vehiculo": {
+      "id": 3,
+      "placa": "ABC123",
+      "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+    },
+    "celda": {
+      "id": 7,
+      "estado": "OCUPADA",
+      "parqueadero": { "id": 1, "nombre": "Parqueadero Central" }
+    }
+  }
+]
+```
+
+---
+
+## GET /api/reservations/parqueadero/:idParqueadero
+
+Returns all reservations (both open and closed) for a specific parking lot, ordered by `fechaEntrada` descending.
+
+**Path parameters**
+
+<ParamField path="idParqueadero" type="number" required>
+  ID of the parking lot.
+</ParamField>
+
+**Response**
+
+Returns an array of reservation objects ordered newest first. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Reservation identifier.
+</ResponseField>
+
+<ResponseField name="fechaEntrada" type="string">
+  Entry timestamp.
+</ResponseField>
+
+<ResponseField name="fechaSalida" type="string | null">
+  Exit timestamp, or `null` if still open.
+</ResponseField>
+
+<ResponseField name="estado" type="string">
+  `ABIERTA` or `CERRADA`.
+</ResponseField>
+
+<ResponseField name="vehiculo" type="object">
+  Vehicle object including nested `tipoVehiculo`.
+</ResponseField>
+
+<ResponseField name="celda" type="object">
+  Cell object (without nested `parqueadero` in this response).
+</ResponseField>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/reservations/parqueadero/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+[
+  {
+    "id": 43,
+    "fechaEntrada": "2024-03-15T10:00:00.000Z",
+    "fechaSalida": "2024-03-15T12:30:00.000Z",
+    "estado": "CERRADA",
+    "vehiculo": {
+      "id": 5,
+      "placa": "XYZ789",
+      "tipoVehiculo": { "id": 2, "nombre": "MOTOCICLETA" }
+    },
+    "celda": { "id": 3, "estado": "LIBRE" }
+  },
+  {
+    "id": 42,
+    "fechaEntrada": "2024-03-15T09:30:00.000Z",
+    "fechaSalida": null,
+    "estado": "ABIERTA",
+    "vehiculo": {
+      "id": 3,
+      "placa": "ABC123",
+      "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+    },
+    "celda": { "id": 7, "estado": "OCUPADA" }
+  }
+]
+```
+
+---
+
+## GET /api/reservations/:id
+
+Returns a single reservation by its ID, with full nested relations.
+
+**Path parameters**
+
+<ParamField path="id" type="number" required>
+  ID of the reservation to retrieve.
+</ParamField>
+
+**Response**
+
+Returns a single reservation object. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Reservation identifier.
+</ResponseField>
+
+<ResponseField name="fechaEntrada" type="string">
+  Entry timestamp.
+</ResponseField>
+
+<ResponseField name="fechaSalida" type="string | null">
+  Exit timestamp, or `null` if still open.
+</ResponseField>
+
+<ResponseField name="estado" type="string">
+  `ABIERTA` or `CERRADA`.
+</ResponseField>
+
+<ResponseField name="vehiculo" type="object">
+  Vehicle object including nested `tipoVehiculo`.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Vehicle identifier.</ResponseField>
+    <ResponseField name="placa" type="string">License plate.</ResponseField>
+    <ResponseField name="tipoVehiculo" type="object">`id` and `nombre` of the vehicle type.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="celda" type="object">
+  Cell object including nested `parqueadero`.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Cell identifier.</ResponseField>
+    <ResponseField name="estado" type="string">Current cell state.</ResponseField>
+    <ResponseField name="parqueadero" type="object">`id` and `nombre` of the parking lot.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/reservations/42 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+{
+  "id": 42,
+  "fechaEntrada": "2024-03-15T09:30:00.000Z",
+  "fechaSalida": null,
+  "estado": "ABIERTA",
+  "vehiculo": {
+    "id": 3,
+    "placa": "ABC123",
+    "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+  },
+  "celda": {
+    "id": 7,
+    "estado": "OCUPADA",
+    "parqueadero": { "id": 1, "nombre": "Parqueadero Central" }
+  }
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `404 Not Found` | No reservation with that ID exists |

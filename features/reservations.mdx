@@ -1,0 +1,126 @@
+---
+title: Reservations
+description: Track vehicle arrivals and departures, manage active reservations, and finalize checkouts with automatic cell state updates.
+---
+
+## Overview
+
+A reservation records a vehicle's occupancy of a specific cell inside a parking lot. Creating a reservation marks the vehicle as checked in; finalizing it marks the vehicle as checked out. The system automatically keeps the cell's availability status in sync throughout the lifecycle.
+
+Every reservation carries:
+
+- The **vehicle** (identified by license plate and type)
+- The **cell** it occupies (which belongs to a specific parking lot)
+- An **entry timestamp** set at creation time
+- An optional **exit timestamp** set when the reservation is finalized
+- A **status** that reflects whether the reservation is open or closed
+
+## Reservation states
+
+<CardGroup cols={2}>
+  <Card title="ABIERTA" icon="circle-dot">
+    The vehicle is currently parked. The cell is marked **OCUPADA**. The reservation has an entry time but no exit time yet. Shown with a blue indicator in the UI.
+  </Card>
+  <Card title="CERRADA" icon="circle-check">
+    The vehicle has left. The cell is back to **LIBRE**. Both entry and exit timestamps are recorded. Shown with a green indicator in the UI.
+  </Card>
+</CardGroup>
+
+<Note>
+  A closed reservation cannot be reopened. Attempting to finalize an already-closed reservation returns a `400 Bad Request` error.
+</Note>
+
+## Creating a reservation
+
+Both **Administrators** and **Operators** can create reservations.
+
+<Steps>
+  <Step title="Navigate to Reservations">
+    Open the **Reservations** page from the sidebar. The page loads your company's parking lots automatically and selects the first lot by default.
+  </Step>
+  <Step title="Select a parking lot">
+    Use the parking lot filter at the top of the page to switch between lots. The reservations table updates to show only reservations for the selected lot.
+  </Step>
+  <Step title="Click New Reservation">
+    The **New Reservation** button opens a modal. If no lots are registered for your company, the button is disabled.
+  </Step>
+  <Step title="Fill in the required fields">
+    The modal requires:
+
+    - **Vehicle** — Select or enter the vehicle by ID. Only vehicles registered in the system are valid.
+    - **Cell** — Select an available cell within the chosen parking lot. Only cells with status `LIBRE` can be selected.
+    - **Status** — Set to `ABIERTA` when creating a new check-in.
+  </Step>
+  <Step title="Submit">
+    On success, the new reservation appears in the table, the selected cell's status changes to **OCUPADA**, and the entry timestamp is recorded automatically.
+  </Step>
+</Steps>
+
+<Warning>
+  If the selected cell is already `OCUPADA`, the system rejects the reservation with an error: "La celda no está LIBRE". Choose a different cell or wait until the current reservation is finalized.
+</Warning>
+
+## Active reservations
+
+The reservations table shows all reservations for the currently selected parking lot, ordered by entry time (most recent first). Each row displays:
+
+| Column | Description |
+|--------|-------------|
+| ID | Reservation identifier |
+| Vehicle | License plate of the vehicle, or the vehicle ID if the plate is unavailable |
+| Entry Date | Timestamp when the vehicle checked in |
+| Exit Date | Timestamp when the vehicle checked out, or "En curso" if still active |
+| Status | `ABIERTA` (blue) or `CERRADA` (green) |
+| Actions | **Finalize** button, shown only for open reservations |
+
+To view all open reservations across all lots (not filtered by lot), the underlying API endpoint `GET /reservations/activas` returns every reservation with status `ABIERTA` platform-wide.
+
+## Finalizing a reservation
+
+Finalizing a reservation records the vehicle's departure and triggers payment processing.
+
+<Steps>
+  <Step title="Locate the open reservation">
+    In the reservations table, find the row with status **ABIERTA**. Only open reservations display the **Finalize** button.
+  </Step>
+  <Step title="Click Finalize">
+    A payment modal opens immediately. You must complete the payment before the reservation is closed. The modal is set to `disableClose: true`, so it cannot be dismissed without providing payment details.
+  </Step>
+  <Step title="Complete payment">
+    Select the payment method and confirm. See [Payments & Invoicing](/features/payments-invoicing) for details on payment methods and amounts.
+  </Step>
+  <Step title="Confirmation">
+    On successful payment:
+    - The reservation's status changes to **CERRADA**.
+    - The exit timestamp is set to the current time.
+    - The cell's status reverts to **LIBRE**.
+    - A success message shows the amount charged (e.g., "Pago procesado exitosamente, monto: $12.00").
+  </Step>
+</Steps>
+
+<Info>
+  The finalization call is `PATCH /reservations/:id/finalizar`. It sets `fechaSalida` to the current timestamp, changes `estado` to `CERRADA`, and updates the cell state to `LIBRE` in a single atomic operation.
+</Info>
+
+## Querying reservations by parking lot
+
+The reservations view automatically filters by the lot you select in the filter bar. Switching lots triggers a fresh query against `GET /reservations/parqueadero/:idParqueadero`, which returns all reservations (open and closed) for that lot, ordered newest first.
+
+This scoped view makes it easy for operators to monitor a specific facility without seeing irrelevant data from other lots.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Parking lots" icon="parking-square" href="/features/parking-lots">
+    Understand cells and lot structure before creating reservations.
+  </Card>
+  <Card title="Payments & Invoicing" icon="credit-card" href="/features/payments-invoicing">
+    Learn how payment is collected when finalizing a reservation.
+  </Card>
+  <Card title="Vehicles" icon="car" href="/administration/vehicles">
+    Manage the vehicle registry that reservations reference.
+  </Card>
+  <Card title="API: Reservations" icon="code" href="/api/reservations">
+    Full reference for the reservations API endpoints.
+  </Card>
+</CardGroup>

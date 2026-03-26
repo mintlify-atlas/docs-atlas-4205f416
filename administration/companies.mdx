@@ -1,0 +1,110 @@
+---
+title: 'Companies'
+description: 'Understand how Parkontrol organises data by company and how to manage company records.'
+---
+
+## Overview
+
+Parkontrol is multi-company aware. Every entity that matters operationally — parking lots, users, rates — belongs to a company (`Empresa`). This structure lets a single Parkontrol deployment serve multiple independent parking operations without their data overlapping.
+
+When you register a new account you supply a company ID, binding your user to that company from the start.
+
+## Company structure
+
+The `Empresa` entity is deliberately minimal:
+
+| Field | Column | Type | Description |
+|---|---|---|---|
+| `id` | `ID_EMPRESA` | number (PK, auto-increment) | Unique company identifier |
+| `nombre` | `NOMBRE` | string (max 20 chars) | Human-readable company name |
+
+All other entities reference the company via foreign key rather than duplicating company data.
+
+```json
+{
+  "id": 1,
+  "nombre": "Parqueaderos SA"
+}
+```
+
+## How companies relate to other entities
+
+<AccordionGroup>
+  <Accordion title="Users">
+    Every `USUARIO` record has an `ID_EMPRESA` foreign key. When you create an Operator account you must supply the `idEmpresa` of the company they belong to. Users are retrieved by company using:
+
+    ```http
+    GET /api/users/empresa/{idEmpresa}
+    ```
+
+    This returns all users — both Administrators and Operators — registered under that company.
+  </Accordion>
+
+  <Accordion title="Parking lots">
+    Every `PARQUEADERO` (parking lot) also carries an `ID_EMPRESA` foreign key. A company can own multiple parking lots, but each parking lot belongs to exactly one company. Rates, cells, and reservations all cascade from the parking lot, so they are implicitly scoped to the company as well.
+  </Accordion>
+</AccordionGroup>
+
+The relationship in entity terms:
+
+```
+Empresa
+  └── Usuarios  (one-to-many)
+  └── Parqueaderos  (one-to-many)
+        └── Celdas
+        └── Tarifas
+        └── Reservas
+```
+
+## Creating companies
+
+Creating a company is an Administrator-level operation performed via the API. There is no dedicated UI page for company management — the operation is typically done once during initial deployment.
+
+```http
+POST /api/companies
+Content-Type: application/json
+
+{
+  "nombre": "Parqueaderos SA"
+}
+```
+
+The `nombre` field must be between 1 and 20 characters. The response returns the created company object including its assigned `id`.
+
+<Note>
+Record the `id` returned in the response. You will need it when creating users (`idEmpresa`) and parking lots.
+</Note>
+
+## Listing companies
+
+To find your company's ID for use in other API calls, retrieve all companies:
+
+```http
+GET /api/companies
+```
+
+This returns an array of all company records:
+
+```json
+[
+  { "id": 1, "nombre": "Parqueaderos SA" },
+  { "id": 2, "nombre": "ParkCentro" }
+]
+```
+
+To fetch a single company by its ID:
+
+```http
+GET /api/companies/{id}
+```
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="User roles" icon="users" href="/administration/user-roles">
+    Learn how Administrator and Operator accounts are scoped to a company.
+  </Card>
+  <Card title="Parking lots" icon="square-parking" href="/features/parking-lots">
+    Parking lots belong to a company. See how to create and manage them.
+  </Card>
+</CardGroup>

@@ -1,0 +1,266 @@
+---
+title: "Cells"
+description: "Manage individual parking spaces (celdas) within a parking lot, including creation, lookup, and real-time state updates."
+---
+
+All endpoints require a valid JWT in the `Authorization` header.
+
+<Note>
+  A cell represents one physical parking space inside a parking lot. Each cell is linked to a sensor that reports occupancy and a cell type that indicates which vehicle class the space is designed for.
+</Note>
+
+### Cell states
+
+| State | Meaning |
+|---|---|
+| `LIBRE` | The space is vacant and available for use. |
+| `OCUPADA` | The space is currently occupied by a vehicle. |
+
+---
+
+## POST /api/cells
+
+Create a new cell (parking space) inside an existing parking lot.
+
+**Request body**
+
+<ParamField body="idParqueadero" type="number" required>
+  ID of the parking lot this cell belongs to.
+</ParamField>
+
+<ParamField body="idTipoCelda" type="number" required>
+  ID of the cell type. Cell types correspond to the vehicle class the space is designed for (e.g., `AUTOMOVIL`, `MOTOCICLETA`).
+</ParamField>
+
+<ParamField body="idSensor" type="number" required>
+  ID of the sensor assigned to monitor this cell.
+</ParamField>
+
+<ParamField body="estado" type="string" required>
+  Initial state of the cell. Must be `LIBRE` or `OCUPADA`.
+</ParamField>
+
+**Response**
+
+Returns the full cell object with related entities expanded.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the created cell.
+</ResponseField>
+
+<ResponseField name="estado" type="string">
+  Current state of the cell (`LIBRE` or `OCUPADA`).
+</ResponseField>
+
+<ResponseField name="ultimoCambioEstado" type="string | null">
+  ISO 8601 timestamp of the last state change. `null` if the state has not been updated since creation.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="object">
+  The parking lot this cell belongs to.
+  <Expandable title="parqueadero fields">
+    <ResponseField name="id" type="number">Parking lot ID.</ResponseField>
+    <ResponseField name="nombre" type="string">Parking lot name.</ResponseField>
+    <ResponseField name="capacidadTotal" type="number">Total capacity.</ResponseField>
+    <ResponseField name="ubicacion" type="string">Location.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="tipoCelda" type="object">
+  The cell type (vehicle class).
+  <Expandable title="tipoCelda fields">
+    <ResponseField name="id" type="number">Cell type ID.</ResponseField>
+    <ResponseField name="nombre" type="string">Cell type name (e.g., `AUTOMOVIL`, `MOTOCICLETA`).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="sensor" type="object">
+  The sensor assigned to this cell.
+  <Expandable title="sensor fields">
+    <ResponseField name="id" type="number">Sensor ID.</ResponseField>
+    <ResponseField name="descripcion" type="string">Sensor description/code (e.g., `Sensor_001`).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example**
+
+```bash
+curl -X POST http://localhost:3000/api/cells \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"idParqueadero": 1, "idTipoCelda": 1, "idSensor": 3, "estado": "LIBRE"}'
+```
+
+```json
+{
+  "id": 6,
+  "estado": "LIBRE",
+  "ultimoCambioEstado": null,
+  "parqueadero": {
+    "id": 1,
+    "nombre": "Parqueadero Norte",
+    "capacidadTotal": 30,
+    "ubicacion": "Av. 68 # 12-40, Bogotá"
+  },
+  "tipoCelda": {
+    "id": 1,
+    "nombre": "AUTOMOVIL"
+  },
+  "sensor": {
+    "id": 3,
+    "descripcion": "Sensor_003"
+  }
+}
+```
+
+---
+
+## GET /api/cells/parqueadero/:idParqueadero
+
+List all cells belonging to a given parking lot. Returns each cell with its related parking lot, cell type, and sensor expanded.
+
+**Path parameters**
+
+<ParamField path="idParqueadero" type="number" required>
+  ID of the parking lot whose cells to retrieve.
+</ParamField>
+
+**Response**
+
+Returns an array of cell objects. Each object has the same shape as the [POST response](#post-apicells).
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/cells/parqueadero/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+[
+  {
+    "id": 1,
+    "estado": "LIBRE",
+    "ultimoCambioEstado": "2024-11-15T08:30:00.000Z",
+    "parqueadero": {
+      "id": 1,
+      "nombre": "Parqueadero Norte",
+      "capacidadTotal": 30,
+      "ubicacion": "Av. 68 # 12-40, Bogotá"
+    },
+    "tipoCelda": { "id": 1, "nombre": "AUTOMOVIL" },
+    "sensor": { "id": 1, "descripcion": "Sensor_001" }
+  },
+  {
+    "id": 2,
+    "estado": "OCUPADA",
+    "ultimoCambioEstado": "2024-11-15T09:15:00.000Z",
+    "parqueadero": {
+      "id": 1,
+      "nombre": "Parqueadero Norte",
+      "capacidadTotal": 30,
+      "ubicacion": "Av. 68 # 12-40, Bogotá"
+    },
+    "tipoCelda": { "id": 1, "nombre": "AUTOMOVIL" },
+    "sensor": { "id": 2, "descripcion": "Sensor_002" }
+  }
+]
+```
+
+---
+
+## GET /api/cells/:id
+
+Retrieve a single cell by its ID, with related entities expanded.
+
+**Path parameters**
+
+<ParamField path="id" type="number" required>
+  ID of the cell.
+</ParamField>
+
+<Warning>
+  Returns `404 Not Found` if no cell exists with the given `id`.
+</Warning>
+
+**Response**
+
+Same shape as the [POST response](#post-apicells).
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/cells/2 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+{
+  "id": 2,
+  "estado": "OCUPADA",
+  "ultimoCambioEstado": "2024-11-15T09:15:00.000Z",
+  "parqueadero": {
+    "id": 1,
+    "nombre": "Parqueadero Norte",
+    "capacidadTotal": 30,
+    "ubicacion": "Av. 68 # 12-40, Bogotá"
+  },
+  "tipoCelda": { "id": 1, "nombre": "AUTOMOVIL" },
+  "sensor": { "id": 2, "descripcion": "Sensor_002" }
+}
+```
+
+---
+
+## PATCH /api/cells/:id/estado
+
+Update the occupancy state of a cell. This endpoint also records the timestamp of the change in `ultimoCambioEstado`.
+
+**Path parameters**
+
+<ParamField path="id" type="number" required>
+  ID of the cell to update.
+</ParamField>
+
+**Request body**
+
+<ParamField body="estado" type="string" required>
+  New state of the cell. Must be `LIBRE` or `OCUPADA`.
+</ParamField>
+
+**Response**
+
+Returns the updated cell object with `ultimoCambioEstado` set to the current server timestamp. Same shape as the [POST response](#post-apicells).
+
+<Tip>
+  This is the primary endpoint used by IoT sensor integrations to report real-time occupancy changes.
+</Tip>
+
+<Warning>
+  Returns `404 Not Found` if no cell exists with the given `id`.
+</Warning>
+
+**Example**
+
+```bash
+curl -X PATCH http://localhost:3000/api/cells/2/estado \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"estado": "LIBRE"}'
+```
+
+```json
+{
+  "id": 2,
+  "estado": "LIBRE",
+  "ultimoCambioEstado": "2024-11-15T10:45:22.000Z",
+  "parqueadero": {
+    "id": 1,
+    "nombre": "Parqueadero Norte",
+    "capacidadTotal": 30,
+    "ubicacion": "Av. 68 # 12-40, Bogotá"
+  },
+  "tipoCelda": { "id": 1, "nombre": "AUTOMOVIL" },
+  "sensor": { "id": 2, "descripcion": "Sensor_002" }
+}
+```

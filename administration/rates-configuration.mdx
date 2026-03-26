@@ -1,0 +1,156 @@
+---
+title: 'Rates configuration'
+description: 'Configure pricing for each vehicle type at every parking lot using Parkontrol rates (tarifas).'
+---
+
+## Overview
+
+Rates (tarifas) define how much to charge for parking a specific vehicle type at a specific parking lot. Each rate is linked to one parking lot and one vehicle type, and specifies two price tiers:
+
+- **Precio fracción hora** — the price charged for the initial fractional hour (required)
+- **Precio hora adicional** — the price charged for each additional hour beyond the first (optional)
+
+Only Administrators can create or update rates.
+
+## Rate components
+
+The `TARIFA` entity contains the following fields:
+
+| Field | Column | Type | Description |
+|---|---|---|---|
+| `id` | `ID_TARIFA` | number (PK) | Unique rate identifier |
+| `precioFraccionHora` | `PRECIO_FRACCION_HORA` | decimal(10,2) | Price for the initial fractional period. Required, must be ≥ 0. |
+| `precioHoraAdicional` | `PRECIO_HORA_ADICIONAL` | decimal(10,2) | Price per additional hour. Optional, must be ≥ 0 if provided. |
+| `parqueadero` | `ID_PARQUEADERO` | FK | The parking lot this rate applies to. |
+| `tipoVehiculo` | `ID_TIPO_VEHICULO` | FK | The vehicle type this rate applies to. |
+
+### Vehicle types
+
+Two vehicle types are seeded into the database:
+
+| ID | Name |
+|---|---|
+| 1 | `AUTOMOVIL` |
+| 2 | `MOTOCICLETA` |
+
+Each parking lot can have a separate rate for each vehicle type.
+
+## Creating a rate
+
+### Using the UI
+
+<Steps>
+  <Step title="Navigate to Tarifas">
+    In the sidebar, click **Tarifas**. This page is only accessible to Administrators.
+  </Step>
+  <Step title="Select a parking lot">
+    Choose the parking lot you want to configure pricing for.
+  </Step>
+  <Step title="Set the vehicle type">
+    Select either `AUTOMOVIL` or `MOTOCICLETA` from the vehicle type selector.
+  </Step>
+  <Step title="Enter prices">
+    Enter the **precio fracción hora** (required). Optionally enter the **precio hora adicional**.
+  </Step>
+  <Step title="Save">
+    Submit the form. The new rate is active immediately.
+  </Step>
+</Steps>
+
+### Using the API
+
+```http
+POST /api/rates
+Content-Type: application/json
+
+{
+  "idParqueadero": 1,
+  "idTipoVehiculo": 1,
+  "precioFraccionHora": 2500,
+  "precioHoraAdicional": 1500
+}
+```
+
+The response returns the full rate object including relations:
+
+```json
+{
+  "id": 3,
+  "precioFraccionHora": 2500,
+  "precioHoraAdicional": 1500,
+  "parqueadero": { "id": 1, "nombre": "Parqueadero Norte" },
+  "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+}
+```
+
+## Updating a rate
+
+Use a `PATCH` request to update one or both price fields on an existing rate. Only `precioFraccionHora` and `precioHoraAdicional` can be updated; the parking lot and vehicle type are fixed at creation.
+
+```http
+PATCH /api/rates/{id}
+Content-Type: application/json
+
+{
+  "precioFraccionHora": 3000,
+  "precioHoraAdicional": 2000
+}
+```
+
+You can omit either field to leave it unchanged. The endpoint returns the updated rate object.
+
+<Warning>
+There is no `DELETE` endpoint for rates. To stop using a rate, set its prices to `0` or remove it directly in the database.
+</Warning>
+
+## Rates per parking lot
+
+Each parking lot maintains its own rate table. To retrieve all rates configured for a parking lot:
+
+```http
+GET /api/rates/parqueadero/{idParqueadero}
+```
+
+This returns an array of rate objects, one per vehicle type that has been configured:
+
+```json
+[
+  {
+    "id": 1,
+    "precioFraccionHora": 2500,
+    "precioHoraAdicional": 1500,
+    "parqueadero": { "id": 1, "nombre": "Parqueadero Norte" },
+    "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+  },
+  {
+    "id": 2,
+    "precioFraccionHora": 1200,
+    "precioHoraAdicional": 800,
+    "parqueadero": { "id": 1, "nombre": "Parqueadero Norte" },
+    "tipoVehiculo": { "id": 2, "nombre": "MOTOCICLETA" }
+  }
+]
+```
+
+<Note>
+The backend looks up rates by both `idParqueadero` and `idTipoVehiculo` when calculating charges at checkout. If a parking lot has no rate for a given vehicle type, the reservation cannot be priced correctly. Configure a rate for every vehicle type you intend to accept.
+</Note>
+
+## Role requirements
+
+Only users with the **ADMINISTRADOR** role can access the Tarifas page or call the rates API endpoints. The route is protected by `roleGuard` with `data: { roles: [RolUsuario.ADMINISTRADOR] }`.
+
+<Tip>
+Configure rates for all vehicle types before opening a parking lot for reservations. Missing rates will prevent payments from being calculated at checkout.
+</Tip>
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="User roles" icon="shield" href="/administration/user-roles">
+    Rates are managed by Administrators only. Learn about role-based access control.
+  </Card>
+  <Card title="Payments and invoicing" icon="credit-card" href="/features/payments-invoicing">
+    See how rates feed into payment calculation and invoice generation.
+  </Card>
+</CardGroup>

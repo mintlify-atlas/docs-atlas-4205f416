@@ -1,0 +1,98 @@
+---
+title: Login
+description: Authenticate a user and receive a JWT access token.
+---
+
+Authenticates a user by email and password. On success, returns a signed JWT that must be included in the `Authorization` header of all protected requests.
+
+## Endpoint
+
+```
+POST /api/auth/login
+```
+
+## Request body
+
+<ParamField body="correo" type="string" required>
+  The user's email address.
+</ParamField>
+
+<ParamField body="contrasena" type="string" required>
+  The user's password. Minimum 6 characters. Leading and trailing whitespace is stripped automatically.
+</ParamField>
+
+## Response
+
+Returns an access token on successful authentication. HTTP status `200 OK`.
+
+<ResponseField name="access_token" type="string" required>
+  A signed JWT. Valid for 1 hour from the time of issue. Include this value in the `Authorization: Bearer <token>` header for all subsequent protected requests.
+</ResponseField>
+
+### JWT payload
+
+The token contains the following claims, which the frontend uses to identify the current user:
+
+<ResponseField name="id" type="number">
+  Unique identifier of the authenticated user.
+</ResponseField>
+
+<ResponseField name="correo" type="string">
+  Email address of the authenticated user.
+</ResponseField>
+
+<ResponseField name="nombreRol" type="string">
+  Role of the user (`ADMINISTRADOR` or `OPERADOR`).
+</ResponseField>
+
+<ResponseField name="idEmpresa" type="number">
+  ID of the company the user belongs to.
+</ResponseField>
+
+## Example request
+
+```bash
+curl -X POST http://localhost:3000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "correo": "ana.torres@empresa.com",
+    "contrasena": "secreto123"
+  }'
+```
+
+## Example response
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6NDIsImNvcnJlbyI6ImFuYS50b3JyZXNAZW1wcmVzYS5jb20iLCJub21icmVSb2wiOiJBRE1JTklTVFJBRE9SIiwiaWRFbXByZXNhIjoxfQ.SIG"
+}
+```
+
+## Using the token
+
+Pass the `access_token` value as a bearer token in the `Authorization` header of every subsequent API request:
+
+```bash
+curl -X GET http://localhost:3000/api/reservations/activas \
+  -H "Authorization: Bearer eyJhbGci..."
+```
+
+Tokens expire after **1 hour**. Once expired, repeat the login request to obtain a new token.
+
+## Error cases
+
+| Status | Cause |
+| --- | --- |
+| `401 Unauthorized` | Email not found, or password does not match |
+
+```json
+{
+  "statusCode": 401,
+  "message": "email o password invalidos",
+  "error": "Unauthorized"
+}
+```
+
+<Tip>
+  The frontend stores the token in `localStorage` under the key `auth_token` and checks the `exp` claim to detect expiry before sending requests.
+</Tip>

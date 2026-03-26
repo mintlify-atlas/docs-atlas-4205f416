@@ -1,0 +1,239 @@
+---
+title: Rates
+description: Configure and update pricing rates per vehicle type for each parking lot.
+---
+
+A rate (`Tarifa`) defines the price structure for a specific combination of parking lot and vehicle type. When a payment is processed, the system automatically looks up the matching rate to calculate the total charge.
+
+<Note>
+  **How rates are matched to reservations:** When a payment is created, the service reads the parking lot (`celda.parqueadero`) and the vehicle type (`vehiculo.tipoVehiculo`) from the reservation. It then looks for a `Tarifa` where both `idParqueadero` and `idTipoVehiculo` match. If no rate exists for that combination, the payment request fails with `404 Not Found`. Ensure a rate is configured for every vehicle type you expect to serve at each lot.
+</Note>
+
+---
+
+## POST /api/rates
+
+Creates a new rate for a parking lot and vehicle type combination.
+
+<Tip>
+  Each combination of `idParqueadero` and `idTipoVehiculo` should be unique. If `precioHoraAdicional` is omitted, the system falls back to `precioFraccionHora` for all additional hours when calculating payment amounts.
+</Tip>
+
+**Request body**
+
+<ParamField body="idParqueadero" type="number" required>
+  ID of the parking lot this rate applies to.
+</ParamField>
+
+<ParamField body="idTipoVehiculo" type="number" required>
+  ID of the vehicle type this rate applies to. Seeded values: `1` = `AUTOMOVIL`, `2` = `MOTOCICLETA`.
+</ParamField>
+
+<ParamField body="precioFraccionHora" type="number" required>
+  Price charged for the first hour or any fraction thereof. Must be `>= 0`.
+</ParamField>
+
+<ParamField body="precioHoraAdicional" type="number">
+  Price per additional hour beyond the first. Optional. Must be `>= 0` if provided. Falls back to `precioFraccionHora` if omitted.
+</ParamField>
+
+**Response**
+
+Returns the created rate object. HTTP status `201 Created`.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the rate.
+</ResponseField>
+
+<ResponseField name="precioFraccionHora" type="number">
+  Price for the first hour or fraction.
+</ResponseField>
+
+<ResponseField name="precioHoraAdicional" type="number | null">
+  Price per additional hour. `null` if not set.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="object">
+  The parking lot this rate belongs to.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Parking lot identifier.</ResponseField>
+    <ResponseField name="nombre" type="string">Parking lot name.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="tipoVehiculo" type="object">
+  The vehicle type this rate applies to.
+  <Expandable title="properties">
+    <ResponseField name="id" type="number">Vehicle type identifier.</ResponseField>
+    <ResponseField name="nombre" type="string">`AUTOMOVIL` or `MOTOCICLETA`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example**
+
+```bash
+curl -X POST http://localhost:3000/api/rates \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idParqueadero": 1,
+    "idTipoVehiculo": 1,
+    "precioFraccionHora": 3000,
+    "precioHoraAdicional": 2000
+  }'
+```
+
+```json
+{
+  "id": 4,
+  "precioFraccionHora": 3000,
+  "precioHoraAdicional": 2000,
+  "parqueadero": { "id": 1, "nombre": "Parqueadero Central" },
+  "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `404 Not Found` | Parking lot ID does not exist |
+| `404 Not Found` | Vehicle type ID does not exist |
+
+---
+
+## GET /api/rates/parqueadero/:idParqueadero
+
+Returns all rates configured for a specific parking lot.
+
+**Path parameters**
+
+<ParamField path="idParqueadero" type="number" required>
+  ID of the parking lot.
+</ParamField>
+
+**Response**
+
+Returns an array of rate objects. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Rate identifier.
+</ResponseField>
+
+<ResponseField name="precioFraccionHora" type="number">
+  Price for the first hour or fraction.
+</ResponseField>
+
+<ResponseField name="precioHoraAdicional" type="number | null">
+  Price per additional hour.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="object">
+  Parking lot object with `id` and `nombre`.
+</ResponseField>
+
+<ResponseField name="tipoVehiculo" type="object">
+  Vehicle type object with `id` and `nombre`.
+</ResponseField>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/rates/parqueadero/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+[
+  {
+    "id": 4,
+    "precioFraccionHora": 3000,
+    "precioHoraAdicional": 2000,
+    "parqueadero": { "id": 1, "nombre": "Parqueadero Central" },
+    "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+  },
+  {
+    "id": 5,
+    "precioFraccionHora": 1500,
+    "precioHoraAdicional": null,
+    "parqueadero": { "id": 1, "nombre": "Parqueadero Central" },
+    "tipoVehiculo": { "id": 2, "nombre": "MOTOCICLETA" }
+  }
+]
+```
+
+---
+
+## PATCH /api/rates/:id
+
+Partially updates an existing rate. Only `precioFraccionHora` and `precioHoraAdicional` can be updated — the parking lot and vehicle type association cannot be changed after creation.
+
+**Path parameters**
+
+<ParamField path="id" type="number" required>
+  ID of the rate to update.
+</ParamField>
+
+**Request body**
+
+All fields are optional. Include only the fields you want to change.
+
+<ParamField body="precioFraccionHora" type="number">
+  Updated price for the first hour or fraction. Must be `>= 0`.
+</ParamField>
+
+<ParamField body="precioHoraAdicional" type="number">
+  Updated price per additional hour. Must be `>= 0`.
+</ParamField>
+
+**Response**
+
+Returns the updated rate object. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Rate identifier.
+</ResponseField>
+
+<ResponseField name="precioFraccionHora" type="number">
+  Updated price for the first hour or fraction.
+</ResponseField>
+
+<ResponseField name="precioHoraAdicional" type="number | null">
+  Updated price per additional hour.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="object">
+  Parking lot object with `id` and `nombre`.
+</ResponseField>
+
+<ResponseField name="tipoVehiculo" type="object">
+  Vehicle type object with `id` and `nombre`.
+</ResponseField>
+
+**Example**
+
+```bash
+curl -X PATCH http://localhost:3000/api/rates/4 \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "precioFraccionHora": 3500,
+    "precioHoraAdicional": 2500
+  }'
+```
+
+```json
+{
+  "id": 4,
+  "precioFraccionHora": 3500,
+  "precioHoraAdicional": 2500,
+  "parqueadero": { "id": 1, "nombre": "Parqueadero Central" },
+  "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `404 Not Found` | No rate with that ID exists |

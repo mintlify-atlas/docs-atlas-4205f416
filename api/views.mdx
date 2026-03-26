@@ -1,0 +1,427 @@
+---
+title: "Views"
+description: "Aggregated read-only views for occupancy, reservation history, invoicing, and revenue data."
+---
+
+The Views API provides pre-aggregated data drawn from Oracle database views. These endpoints are read-optimized and return denormalized data suited for dashboards and reports. Only users with the `ADMINISTRADOR` role can access the Views page in the UI.
+
+All endpoints require a valid JWT in the `Authorization` header.
+
+<Note>
+  All views query Oracle database views (`VW_OCUPACION_PARQUEADERO`, `VW_HISTORIAL_RESERVAS`, `VW_FACTURACION_COMPLETA`, `VW_INGRESOS_POR_PARQUEADERO_MENSUAL`). Column names from Oracle are automatically converted from `UPPER_CASE` to `camelCase` in the response.
+</Note>
+
+---
+
+## GET /api/views/ocupacion
+
+Returns occupancy data for all parking lots, optionally filtered by company.
+
+**Query parameters**
+
+<ParamField query="idEmpresa" type="number">
+  Optional. Filter results to a specific company. Omit to retrieve data for all companies.
+</ParamField>
+
+**Response**
+
+Returns an array of occupancy records from `VW_OCUPACION_PARQUEADERO`.
+
+<ResponseField name="idParqueadero" type="number">
+  Parking lot ID.
+</ResponseField>
+
+<ResponseField name="nombreParqueadero" type="string">
+  Name of the parking lot.
+</ResponseField>
+
+<ResponseField name="nombreEmpresa" type="string">
+  Name of the company that owns the parking lot.
+</ResponseField>
+
+<ResponseField name="totalCeldas" type="number">
+  Total number of cells in the parking lot.
+</ResponseField>
+
+<ResponseField name="celdasOcupadas" type="number">
+  Number of cells currently occupied.
+</ResponseField>
+
+<ResponseField name="celdasLibres" type="number">
+  Number of cells currently available.
+</ResponseField>
+
+**Example**
+
+```bash
+curl "http://localhost:3000/api/views/ocupacion?idEmpresa=1" \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+[
+  {
+    "idParqueadero": 1,
+    "nombreParqueadero": "Parqueadero Norte",
+    "nombreEmpresa": "Parqueaderos SA",
+    "totalCeldas": 30,
+    "celdasOcupadas": 12,
+    "celdasLibres": 18
+  }
+]
+```
+
+---
+
+## GET /api/views/ocupacion/:idParqueadero
+
+Returns occupancy data for a single parking lot.
+
+**Path parameters**
+
+<ParamField path="idParqueadero" type="number" required>
+  ID of the parking lot.
+</ParamField>
+
+**Response**
+
+Returns a single occupancy record. HTTP status `200 OK`.
+
+Same shape as the array items in [GET /api/views/ocupacion](#get-apiviewsocupacion).
+
+<Warning>
+  Returns `404 Not Found` if no occupancy data exists for the given parking lot ID.
+</Warning>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/views/ocupacion/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+## GET /api/views/historial-reservas
+
+Returns the complete reservation history, optionally filtered by company.
+
+**Query parameters**
+
+<ParamField query="idEmpresa" type="number">
+  Optional. Filter to a specific company.
+</ParamField>
+
+**Response**
+
+Returns an array of reservation history records from `VW_HISTORIAL_RESERVAS`.
+
+<ResponseField name="idReserva" type="number">
+  Reservation ID.
+</ResponseField>
+
+<ResponseField name="placa" type="string">
+  License plate of the vehicle.
+</ResponseField>
+
+<ResponseField name="tipoVehiculo" type="string">
+  Vehicle type name (e.g., `AUTOMOVIL`, `MOTOCICLETA`).
+</ResponseField>
+
+<ResponseField name="idCelda" type="number">
+  ID of the cell that was occupied.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="string">
+  Name of the parking lot.
+</ResponseField>
+
+<ResponseField name="fechaEntrada" type="string">
+  ISO 8601 entry timestamp.
+</ResponseField>
+
+<ResponseField name="fechaSalida" type="string">
+  ISO 8601 exit timestamp, or `null` if still open.
+</ResponseField>
+
+<ResponseField name="estado" type="string">
+  Reservation state (`ABIERTA` or `CERRADA`).
+</ResponseField>
+
+**Example**
+
+```bash
+curl "http://localhost:3000/api/views/historial-reservas?idEmpresa=1" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+## GET /api/views/historial-reservas/parqueadero/:idParqueadero/placa/:placa
+
+Returns reservation history for a specific vehicle at a specific parking lot.
+
+**Path parameters**
+
+<ParamField path="idParqueadero" type="number" required>
+  ID of the parking lot.
+</ParamField>
+
+<ParamField path="placa" type="string" required>
+  License plate of the vehicle to look up.
+</ParamField>
+
+**Response**
+
+Returns an array of reservation history records filtered by parking lot and plate.
+
+<Warning>
+  Returns `404 Not Found` if the parking lot does not exist.
+</Warning>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/views/historial-reservas/parqueadero/1/placa/ABC123 \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+## GET /api/views/facturacion
+
+Returns complete invoicing data (invoices with payment and billing client details), optionally filtered by company.
+
+**Query parameters**
+
+<ParamField query="idEmpresa" type="number">
+  Optional. Filter to a specific company.
+</ParamField>
+
+**Response**
+
+Returns an array of invoicing records from `VW_FACTURACION_COMPLETA`.
+
+<ResponseField name="idFacturaElectronica" type="number">
+  Invoice ID.
+</ResponseField>
+
+<ResponseField name="tipoDocumento" type="string">
+  Document type of the billing client.
+</ResponseField>
+
+<ResponseField name="numeroDocumento" type="string">
+  Document number of the billing client.
+</ResponseField>
+
+<ResponseField name="correo" type="string">
+  Email address of the billing client.
+</ResponseField>
+
+<ResponseField name="idPago" type="number">
+  ID of the linked payment.
+</ResponseField>
+
+<ResponseField name="monto" type="number">
+  Payment amount.
+</ResponseField>
+
+<ResponseField name="metodoPago" type="string">
+  Payment method name (e.g., `EFECTIVO`, `TARJETA`).
+</ResponseField>
+
+<ResponseField name="fechaPago" type="string">
+  ISO 8601 payment timestamp.
+</ResponseField>
+
+<ResponseField name="cufe" type="string">
+  Unique Electronic Invoice Code.
+</ResponseField>
+
+<ResponseField name="urlPdf" type="string">
+  URL of the invoice PDF, or `null` if not set.
+</ResponseField>
+
+<ResponseField name="enviada" type="number">
+  Whether the invoice has been sent (`1` = sent, `0` = not sent).
+</ResponseField>
+
+**Example**
+
+```bash
+curl "http://localhost:3000/api/views/facturacion?idEmpresa=1" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+## GET /api/views/facturacion/documento/:numeroDocumento
+
+Returns invoicing data filtered by billing client document number, optionally within a specific company.
+
+**Path parameters**
+
+<ParamField path="numeroDocumento" type="string" required>
+  Document number of the billing client to look up.
+</ParamField>
+
+**Query parameters**
+
+<ParamField query="idEmpresa" type="number">
+  Optional. Filter to a specific company.
+</ParamField>
+
+**Response**
+
+Returns an array of invoicing records matching the document number.
+
+**Example**
+
+```bash
+curl "http://localhost:3000/api/views/facturacion/documento/1023456789?idEmpresa=1" \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+## GET /api/views/ingresos
+
+Returns monthly revenue data across all parking lots, optionally filtered by company.
+
+**Query parameters**
+
+<ParamField query="idEmpresa" type="number">
+  Optional. Filter to a specific company.
+</ParamField>
+
+**Response**
+
+Returns an array of revenue records from `VW_INGRESOS_POR_PARQUEADERO_MENSUAL`.
+
+<ResponseField name="empresa" type="string">
+  Company name.
+</ResponseField>
+
+<ResponseField name="parqueadero" type="string">
+  Parking lot name.
+</ResponseField>
+
+<ResponseField name="periodo" type="string">
+  Period label (e.g., month name).
+</ResponseField>
+
+<ResponseField name="totalIngresos" type="number">
+  Total revenue for the parking lot in the given period.
+</ResponseField>
+
+**Example**
+
+```bash
+curl "http://localhost:3000/api/views/ingresos?idEmpresa=1" \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+[
+  {
+    "empresa": "Parqueaderos SA",
+    "parqueadero": "Parqueadero Norte",
+    "periodo": "Marzo",
+    "totalIngresos": 450000
+  }
+]
+```
+
+---
+
+## GET /api/views/ingresos/parqueadero/:idParqueadero
+
+Returns monthly revenue data for a single parking lot.
+
+**Path parameters**
+
+<ParamField path="idParqueadero" type="number" required>
+  ID of the parking lot.
+</ParamField>
+
+**Response**
+
+Returns an array of revenue records for the specified parking lot.
+
+<Warning>
+  Returns `404 Not Found` if the parking lot does not exist.
+</Warning>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/views/ingresos/parqueadero/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+---
+
+## POST /api/views/procesar-pago
+
+Processes a payment for an open reservation using a stored Oracle procedure. This is an alternative to `POST /api/payments` and is used by the operator dashboard workflow.
+
+**Request body**
+
+<ParamField body="idReserva" type="number" required>
+  ID of the open reservation to finalize and pay.
+</ParamField>
+
+<ParamField body="idMetodoPago" type="number" required>
+  ID of the payment method. Seeded values: `1` = `EFECTIVO`, `2` = `TARJETA`, `3` = `TRANSFERENCIA`.
+</ParamField>
+
+**Response**
+
+Returns the calculated payment amount.
+
+<ResponseField name="monto" type="number">
+  Total amount charged, calculated by the Oracle stored procedure.
+</ResponseField>
+
+**Example**
+
+```bash
+curl -X POST http://localhost:3000/api/views/procesar-pago \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "idReserva": 42,
+    "idMetodoPago": 1
+  }'
+```
+
+```json
+{
+  "monto": 8500
+}
+```
+
+---
+
+## GET /api/views/buscar-vehiculo/:placa
+
+Searches for a vehicle by license plate and returns a status message suitable for display in the operator UI.
+
+**Path parameters**
+
+<ParamField path="placa" type="string" required>
+  License plate to search for.
+</ParamField>
+
+**Response**
+
+<ResponseField name="mensaje" type="string">
+  Human-readable message about the vehicle status.
+</ResponseField>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/views/buscar-vehiculo/ABC123 \
+  -H "Authorization: Bearer <token>"
+```

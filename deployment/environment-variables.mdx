@@ -1,0 +1,89 @@
+---
+title: 'Environment variables'
+description: 'Reference for all environment variables required by the Parkontrol backend.'
+---
+
+The Parkontrol backend reads its configuration from environment variables at startup using `@nestjs/config`. You must provide these values in a `.env` file in the `backend/` directory, or inject them through your deployment environment.
+
+<Note>
+  The `.env` file is excluded from version control by `.gitignore`. You must create it manually on each machine or deployment target where you run the backend.
+</Note>
+
+## Database configuration
+
+The backend connects to Oracle Database using TypeORM and the `oracledb` driver. All five database variables are required — the server will fail to connect at startup if any are missing or incorrect.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DB_HOST` | Yes | Hostname or IP address of your Oracle Database server. |
+| `DB_PORT` | Yes | Port the Oracle listener is running on. Typically `1521`. |
+| `DB_USERNAME` | Yes | Oracle database user with access to the Parkontrol schema. |
+| `DB_PASSWORD` | Yes | Password for `DB_USERNAME`. |
+| `DB_SID` | Yes | Oracle System Identifier (SID) for the target database instance. |
+
+<Warning>
+  `DB_PASSWORD` is sensitive. Never hard-code it in source files or commit it to version control. Use a secrets manager or environment injection in production.
+</Warning>
+
+## Authentication
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `JWT_SECRET` | Yes | Secret key used to sign and verify JSON Web Tokens. Use a long, random string. |
+
+<Warning>
+  If `JWT_SECRET` is weak or guessable, attackers may be able to forge authentication tokens. Generate a secure random value with a tool like `openssl rand -hex 64`.
+</Warning>
+
+## Server
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `PORT` | No | `3000` | Port the HTTP server listens on. Override this if port `3000` is already in use on your system. |
+
+## Example `.env` file
+
+Create this file at `backend/.env` and fill in the values for your environment:
+
+```bash backend/.env
+# Database — Oracle connection
+DB_HOST=localhost
+DB_PORT=1521
+DB_USERNAME=parkontrol_user
+DB_PASSWORD=your_secure_password
+DB_SID=ORCL
+
+# Authentication
+JWT_SECRET=replace_with_a_long_random_string
+
+# Server (optional)
+PORT=3000
+```
+
+<Tip>
+  To generate a secure `JWT_SECRET`, run: `openssl rand -hex 64`
+</Tip>
+
+## Frontend configuration
+
+The frontend does not use a `.env` file. Its only configurable value is the backend API URL, set in `frontend-angular/src/environments/environment.ts`:
+
+```typescript frontend-angular/src/environments/environment.ts
+export const environment = {
+  production: false,
+  urlApi: 'http://localhost:3000/api'
+};
+```
+
+Update `urlApi` to point to your backend if it is deployed to a different host or port. See [Frontend setup](/deployment/frontend-setup) for details.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Backend setup" icon="server" href="/deployment/backend-setup">
+    Step-by-step guide to installing and running the backend.
+  </Card>
+  <Card title="Frontend setup" icon="monitor" href="/deployment/frontend-setup">
+    Step-by-step guide to installing and running the frontend.
+  </Card>
+</CardGroup>

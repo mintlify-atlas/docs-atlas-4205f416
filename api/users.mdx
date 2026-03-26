@@ -1,0 +1,255 @@
+---
+title: "Users"
+description: "Create, retrieve, and delete user accounts within a company."
+---
+
+All endpoints require a valid JWT in the `Authorization` header. Only users with the `ADMINISTRADOR` role can manage user accounts.
+
+<Note>
+  The `DELETE /api/users/:id` endpoint only permits deleting `OPERADOR` accounts. Attempting to delete an `ADMINISTRADOR` account returns a validation error.
+</Note>
+
+---
+
+## POST /api/users
+
+Creates a new user and assigns them to a company with a specified role.
+
+**Request body**
+
+<ParamField body="nombre" type="string" required>
+  Full name of the user. Minimum 3 characters.
+</ParamField>
+
+<ParamField body="correo" type="string" required>
+  Unique email address. Used as the login identifier. Must be a valid email format.
+</ParamField>
+
+<ParamField body="contrasena" type="string" required>
+  Password. Minimum 6 characters. Leading and trailing whitespace is stripped automatically.
+</ParamField>
+
+<ParamField body="rol" type="string" required>
+  Role to assign. Must be `ADMINISTRADOR` or `OPERADOR`.
+</ParamField>
+
+<ParamField body="idEmpresa" type="number" required>
+  ID of the company this user belongs to.
+</ParamField>
+
+**Response**
+
+Returns the created user. HTTP status `201 Created`.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the user.
+</ResponseField>
+
+<ResponseField name="nombre" type="string">
+  Full name of the user.
+</ResponseField>
+
+<ResponseField name="correo" type="string">
+  Email address of the user.
+</ResponseField>
+
+<ResponseField name="rol" type="string">
+  Role assigned to the user (`ADMINISTRADOR` or `OPERADOR`).
+</ResponseField>
+
+<ResponseField name="idEmpresa" type="number">
+  ID of the company the user belongs to.
+</ResponseField>
+
+**Example**
+
+```bash
+curl -X POST http://localhost:3000/api/users \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "Carlos Ruiz",
+    "correo": "carlos.ruiz@empresa.com",
+    "contrasena": "operador123",
+    "rol": "OPERADOR",
+    "idEmpresa": 1
+  }'
+```
+
+```json
+{
+  "id": 5,
+  "nombre": "Carlos Ruiz",
+  "correo": "carlos.ruiz@empresa.com",
+  "rol": "OPERADOR",
+  "idEmpresa": 1
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `400 Bad Request` | Validation failure (missing field, short password, invalid email, etc.) |
+| `409 Conflict` | A user with the same email already exists |
+
+---
+
+## GET /api/users/empresa/:idEmpresa
+
+Returns all users registered under a specific company.
+
+**Path parameters**
+
+<ParamField path="idEmpresa" type="number" required>
+  ID of the company whose users to list.
+</ParamField>
+
+**Response**
+
+Returns an array of user objects. HTTP status `200 OK`.
+
+<ResponseField name="id" type="number">
+  Unique identifier of the user.
+</ResponseField>
+
+<ResponseField name="nombre" type="string">
+  Full name.
+</ResponseField>
+
+<ResponseField name="correo" type="string">
+  Email address.
+</ResponseField>
+
+<ResponseField name="rol" type="string">
+  Role (`ADMINISTRADOR` or `OPERADOR`).
+</ResponseField>
+
+<ResponseField name="idEmpresa" type="number">
+  Company ID.
+</ResponseField>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/users/empresa/1 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+[
+  {
+    "id": 1,
+    "nombre": "Ana Torres",
+    "correo": "ana.torres@empresa.com",
+    "rol": "ADMINISTRADOR",
+    "idEmpresa": 1
+  },
+  {
+    "id": 5,
+    "nombre": "Carlos Ruiz",
+    "correo": "carlos.ruiz@empresa.com",
+    "rol": "OPERADOR",
+    "idEmpresa": 1
+  }
+]
+```
+
+---
+
+## GET /api/users/:id
+
+Returns a single user by their numeric ID.
+
+**Path parameters**
+
+<ParamField path="id" type="number" required>
+  ID of the user.
+</ParamField>
+
+**Response**
+
+<ResponseField name="id" type="number">
+  Unique identifier of the user.
+</ResponseField>
+
+<ResponseField name="nombre" type="string">
+  Full name.
+</ResponseField>
+
+<ResponseField name="correo" type="string">
+  Email address.
+</ResponseField>
+
+<ResponseField name="rol" type="string">
+  Role (`ADMINISTRADOR` or `OPERADOR`).
+</ResponseField>
+
+<ResponseField name="idEmpresa" type="number">
+  Company ID.
+</ResponseField>
+
+<Warning>
+  Returns `404 Not Found` if no user exists with the given `id`.
+</Warning>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/users/5 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+{
+  "id": 5,
+  "nombre": "Carlos Ruiz",
+  "correo": "carlos.ruiz@empresa.com",
+  "rol": "OPERADOR",
+  "idEmpresa": 1
+}
+```
+
+---
+
+## DELETE /api/users/:id
+
+Deletes an Operator user account. Cannot be used to delete Administrator accounts.
+
+**Path parameters**
+
+<ParamField path="id" type="number" required>
+  ID of the user to delete. Must be an `OPERADOR` account.
+</ParamField>
+
+**Response**
+
+Returns a confirmation message. HTTP status `200 OK`.
+
+<ResponseField name="mensaje" type="string">
+  Confirmation message: `"Usuario Operador eliminado correctamente"`.
+</ResponseField>
+
+<Warning>
+  This endpoint only permits deleting `OPERADOR` accounts. If the target user is an `ADMINISTRADOR`, the request is rejected with a validation error.
+</Warning>
+
+**Example**
+
+```bash
+curl -X DELETE http://localhost:3000/api/users/5 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+{
+  "mensaje": "Usuario Operador eliminado correctamente"
+}
+```
+
+**Error cases**
+
+| Status | Cause |
+| --- | --- |
+| `400 Bad Request` | Target user is an Administrator — only Operators can be deleted |
+| `404 Not Found` | No user with that ID exists |

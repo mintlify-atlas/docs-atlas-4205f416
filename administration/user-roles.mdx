@@ -1,0 +1,142 @@
+---
+title: 'User roles'
+description: 'Understand the two roles in Parkontrol — Administrator and Operator — and how access is enforced at the route level.'
+---
+
+## Overview
+
+Parkontrol uses two roles to control what each user can see and do:
+
+- **ADMINISTRADOR** — full access to every feature in the platform
+- **OPERADOR** — restricted access limited to day-to-day parking operations
+
+Every user account is assigned exactly one role at creation time. The role is stored in the `ROL` table and linked to the `USUARIO` record via the `ID_ROL` foreign key.
+
+## Feature access by role
+
+The table below lists every application route and which roles can access it.
+
+| Feature | Administrator | Operator |
+|---|---|---|
+| Admin dashboard | Yes | No |
+| Operator dashboard | No | Yes |
+| Parking lots (parqueaderos) | Yes | Yes |
+| Cells (celdas) | Yes | Yes |
+| Vehicles (vehiculos) | Yes | Yes |
+| Reservations (reservas) | Yes | Yes |
+| User management (usuarios) | Yes | No |
+| Rates (tarifas) | Yes | No |
+| Payments (pagos) | Yes | No |
+| Invoicing (facturacion) | Yes | No |
+| Reports / views (vistas) | Yes | No |
+
+## Administrator capabilities
+
+As an Administrator you have unrestricted access to the entire platform:
+
+- **Dashboard** — view occupancy, revenue, and reservation statistics
+- **User management** — create and delete Operator accounts for your company
+- **Parking lots** — create and configure parking locations
+- **Cells** — manage individual parking spaces and their sensors
+- **Vehicles** — register and look up vehicles
+- **Rates** — define pricing per vehicle type for each parking lot
+- **Reservations** — open and close reservations
+- **Payments** — record and review payment transactions
+- **Invoicing** — generate and view invoices
+- **Reports / views** — access aggregated reporting views
+
+When you log in, the application redirects you automatically to `/dashboard`.
+
+## Operator capabilities
+
+Operators handle the physical parking workflow. After logging in you are redirected to `/operador-dashboard`. You have access to:
+
+- **Operator dashboard** — a streamlined view of active parking activity
+- **Parking lots** — view assigned parking locations
+- **Cells** — monitor and update cell status
+- **Vehicles** — register vehicles arriving at the lot
+- **Reservations** — open new reservations and close them when a vehicle exits
+
+Operators cannot access user management, rates, payments, invoicing, or reports.
+
+## Route-level access control
+
+Route protection is enforced by two Angular guards applied in sequence:
+
+1. **`authGuard`** — checks that a valid session exists. Unauthenticated requests are redirected to `/login`. If the authenticated user's role is neither `ADMINISTRADOR` nor `OPERADOR`, the session is terminated immediately.
+
+2. **`roleGuard`** — checks that the current user's role matches the `roles` array declared in the route's `data` property. If the role does not match, the user is logged out and redirected to `/login`.
+
+For example, the Tarifas route is declared with `data: { roles: [RolUsuario.ADMINISTRADOR] }`, so an Operator who navigates to `/tarifas` directly will be denied access and logged out.
+
+<Note>
+Both guards run on every navigation. There is no client-side bypass — mismatched roles always result in session termination.
+</Note>
+
+## Adding Operator users
+
+Only an Administrator can create new user accounts.
+
+<Steps>
+  <Step title="Navigate to Usuarios">
+    In the sidebar, click **Usuarios**. This page is only visible to Administrators.
+  </Step>
+  <Step title="Fill in the user form">
+    Provide the following fields:
+
+    | Field | Description |
+    |---|---|
+    | `nombre` | Full name (minimum 3 characters) |
+    | `correo` | Unique email address |
+    | `contrasena` | Password (minimum 6 characters) |
+    | `rol` | Set to `OPERADOR` for a day-to-day staff account |
+    | `idEmpresa` | Your company's numeric ID |
+  </Step>
+  <Step title="Submit">
+    The backend hashes the password with bcrypt (10 salt rounds) before saving. The new user can log in immediately.
+  </Step>
+</Steps>
+
+You can also call the API directly:
+
+```http
+POST /api/users
+Content-Type: application/json
+
+{
+  "nombre": "Ana Gomez",
+  "correo": "ana.gomez@example.com",
+  "contrasena": "secret123",
+  "rol": "OPERADOR",
+  "idEmpresa": 1
+}
+```
+
+To list all users belonging to your company:
+
+```http
+GET /api/users/empresa/{idEmpresa}
+```
+
+## Removing users
+
+You can delete an Operator account using the Usuarios page or via the API:
+
+```http
+DELETE /api/users/{id}
+```
+
+<Warning>
+The `DELETE /api/users/:id` endpoint only permits deletion of Operator accounts. Attempting to delete an Administrator account returns a validation error. This restriction is enforced by `UsuarioValidator.validarEsOperador` in the backend service.
+</Warning>
+
+## Best practices
+
+<Tip>
+Grant the **Operator** role to all day-to-day parking staff. Reserve the **Administrator** role for the small number of people who need to manage rates, review financials, or administer user accounts. This limits the blast radius if an account is compromised.
+</Tip>
+
+- Create one Administrator account per company during initial setup (see [registration](/api/auth/register)).
+- Use a unique email address per user — the `correo` field is enforced as unique in the database.
+- If an employee leaves, delete their Operator account promptly using `DELETE /api/users/:id`.
+- Do not share credentials between staff members; each person should have their own account so actions can be traced per user.

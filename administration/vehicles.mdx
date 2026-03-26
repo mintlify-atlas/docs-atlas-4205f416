@@ -1,0 +1,126 @@
+---
+title: 'Vehicles'
+description: 'Register and manage vehicles in Parkontrol. Vehicles are required to open a reservation at any parking lot.'
+---
+
+## Overview
+
+Parkontrol tracks every vehicle that uses the parking system. A vehicle record must exist before you can open a reservation for it. Both Administrators and Operators can register and look up vehicles.
+
+## Vehicle types
+
+Two vehicle types are available in every Parkontrol deployment:
+
+| ID | Name | Description |
+|---|---|---|
+| 1 | `AUTOMOVIL` | Standard passenger car |
+| 2 | `MOTOCICLETA` | Motorcycle |
+
+Vehicle types mirror cell types (`TIPO_CELDA`). When a vehicle enters the parking lot, the system assigns it to a cell of the matching type. An `AUTOMOVIL` occupies an automobile cell; a `MOTOCICLETA` occupies a motorcycle cell. Parking lots must have cells of the correct type provisioned before vehicles of that type can be accepted.
+
+## Vehicle model fields
+
+The `VEHICULO` entity stores the following data:
+
+| Field | Column | Type | Description |
+|---|---|---|---|
+| `id` | `ID_VEHICULO` | number (PK, auto-increment) | Unique vehicle identifier |
+| `placa` | `PLACA` | string (3–10 chars, unique) | License plate number, stored in uppercase |
+| `tipoVehiculo` | `ID_TIPO_VEHICULO` | FK | Vehicle type (`AUTOMOVIL` or `MOTOCICLETA`) |
+
+<Note>
+The license plate (`placa`) is the natural identifier for a vehicle. It is automatically converted to uppercase on save and must be unique across the entire system. Attempting to register a plate that already exists returns a `409 Conflict` error.
+</Note>
+
+Vehicles do not store owner identity fields (name, document number, or contact details). Ownership context lives in the reservation linked to the vehicle at the time of entry.
+
+## Adding a vehicle
+
+### Using the UI
+
+<Steps>
+  <Step title="Navigate to Vehiculos">
+    In the sidebar, click **Vehiculos**. Both Administrators and Operators can access this page.
+  </Step>
+  <Step title="Enter the license plate">
+    Type the vehicle's license plate number. The value must be between 3 and 10 characters. It will be stored in uppercase regardless of how you type it.
+  </Step>
+  <Step title="Select the vehicle type">
+    Choose `AUTOMOVIL` or `MOTOCICLETA`.
+  </Step>
+  <Step title="Save">
+    Submit the form. The vehicle is registered immediately and available for reservations.
+  </Step>
+</Steps>
+
+### Using the API
+
+```http
+POST /api/vehicles
+Content-Type: application/json
+
+{
+  "placa": "ABC123",
+  "idTipoVehiculo": 1
+}
+```
+
+The response returns the saved vehicle object:
+
+```json
+{
+  "id": 7,
+  "placa": "ABC123",
+  "tipoVehiculo": { "id": 1, "nombre": "AUTOMOVIL" }
+}
+```
+
+### Looking up a vehicle
+
+If the vehicle is already registered you can retrieve it by plate before opening a reservation:
+
+```http
+GET /api/vehicles/placa/{placa}
+```
+
+Or by its numeric ID:
+
+```http
+GET /api/vehicles/{id}
+```
+
+Both endpoints return the same vehicle object including the resolved `tipoVehiculo` relation.
+
+## How vehicles link to reservations
+
+Every reservation (`RESERVA`) requires a vehicle. The typical workflow is:
+
+<Steps>
+  <Step title="Check if the vehicle exists">
+    Search by license plate using `GET /api/vehicles/placa/{placa}`. If the vehicle is found, note its `id`.
+  </Step>
+  <Step title="Register the vehicle if it is new">
+    If the plate is not found, create it with `POST /api/vehicles` before continuing.
+  </Step>
+  <Step title="Open a reservation">
+    Create a reservation using the vehicle's `id`. The system assigns an available cell matching the vehicle's type and records the entry timestamp.
+  </Step>
+  <Step title="Close the reservation">
+    When the vehicle exits, close the reservation. The system calculates the charge using the rate configured for the parking lot and vehicle type.
+  </Step>
+</Steps>
+
+<Tip>
+Search by plate first before registering. Regular customers will already have a vehicle record from their first visit.
+</Tip>
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Reservations" icon="calendar" href="/features/reservations">
+    Learn how to open and close reservations using a registered vehicle.
+  </Card>
+  <Card title="Rates configuration" icon="tag" href="/administration/rates-configuration">
+    Rates are configured per vehicle type. Ensure rates exist before accepting vehicles.
+  </Card>
+</CardGroup>

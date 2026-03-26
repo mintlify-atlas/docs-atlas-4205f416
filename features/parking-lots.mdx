@@ -1,0 +1,129 @@
+---
+title: Parking lots
+description: Create and manage parking lots, configure individual cells, and monitor real-time occupancy across your company's facilities.
+---
+
+## Overview
+
+A parking lot is the primary operational unit in Parkontrol. Every parking lot belongs to a **Company** and is subdivided into individual **Cells** — one cell per physical parking space.
+
+The hierarchy is:
+
+```
+Company
+└── Parking Lot
+    ├── Cell A-01
+    ├── Cell A-02
+    └── Cell A-03
+```
+
+Each parking lot tracks its total capacity and physical location. Cells within a lot track per-space occupancy in real time through sensor readings and reservation state changes.
+
+<Info>
+  Each parking lot is scoped to your company. You only see lots that belong to your company's account.
+</Info>
+
+## Viewing parking lots
+
+Navigate to **Parking Lots** from the main sidebar. The page loads all lots registered to your company automatically.
+
+The table displays:
+
+| Column | Description |
+|--------|-------------|
+| ID | Unique numeric identifier for the lot |
+| Name | Display name of the parking lot |
+| Location | Physical address or description |
+| Capacity | Total number of cells in the lot |
+
+If your company has no lots registered yet, the page displays a prompt to create your first one.
+
+## Creating a parking lot
+
+<Warning>
+  Only users with the **Administrator** role can create parking lots.
+</Warning>
+
+Administrators see a **New Parking Lot** button at the top of the page. Clicking it opens a modal dialog where you fill in the required fields.
+
+<Steps>
+  <Step title="Click New Parking Lot">
+    The button is visible only to Administrators. If you do not see it, your account has the Operator role.
+  </Step>
+  <Step title="Fill in the required fields">
+    All four fields are required:
+
+    - **Name** — Display name for the lot (minimum 3 characters).
+    - **Total Capacity** — Integer representing how many cells the lot contains.
+    - **Location** — Physical address or descriptive location (minimum 5 characters).
+    - **Company** — Automatically set to your company account.
+  </Step>
+  <Step title="Submit the form">
+    The new lot appears immediately in the table. The company association is set automatically from your authenticated session.
+  </Step>
+</Steps>
+
+## Managing cells
+
+A **cell** is an individual parking space inside a lot. Cells are created separately after the lot is set up. Each cell belongs to exactly one parking lot.
+
+### Cell fields
+
+| Field | Description |
+|-------|-------------|
+| Parking Lot | The lot this cell belongs to |
+| Cell Type | Vehicle category the space is designed for |
+| Sensor | Hardware sensor assigned to detect occupancy |
+| Status | Current occupancy state (`LIBRE` or `OCUPADA`) |
+| Last Status Change | Timestamp of the most recent state update |
+
+### Cell types
+
+Parkontrol supports two vehicle type categories for cells:
+
+<CardGroup cols={2}>
+  <Card title="AUTOMOVIL" icon="car">
+    Standard car spaces. Rates and reservations for automobiles apply to cells of this type.
+  </Card>
+  <Card title="MOTOCICLETA" icon="zap">
+    Motorcycle spaces. The `MOTO` cell type designation is used in the database for these spaces.
+  </Card>
+</CardGroup>
+
+### Sensor assignment
+
+Each cell must be assigned a hardware sensor at creation time. Sensors are identified by a code (e.g., `Sensor_001`) and are pre-registered in the system. A sensor can only be assigned to one cell at a time.
+
+To retrieve all cells for a given lot, the API queries by `idParqueadero`. See [API: Cells](/api/cells) for details.
+
+## Real-time status
+
+Cell status updates automatically when reservations are opened or finalized:
+
+<Tabs>
+  <Tab title="When a reservation opens">
+    Creating a new reservation for a cell immediately sets that cell's status to **OCUPADA**. The system rejects reservation attempts for any cell that is not currently `LIBRE`.
+  </Tab>
+  <Tab title="When a reservation closes">
+    Finalizing a reservation (checkout) sets the cell's status back to **LIBRE**, making it available for the next vehicle.
+  </Tab>
+</Tabs>
+
+The `ultimoCambioEstado` timestamp on each cell records exactly when the last status transition occurred, giving you an audit trail of occupancy changes.
+
+<Tip>
+  The status badge shown in the Reservations view reflects the same underlying cell state. You do not need to navigate to the Cells view to check occupancy.
+</Tip>
+
+## Roles
+
+<CardGroup cols={2}>
+  <Card title="Administrator" icon="shield">
+    Can view all lots for their company and create new parking lots. Administrators also manage cells via the API or dedicated cell creation flows.
+  </Card>
+  <Card title="Operator" icon="user">
+    Can view all lots for their company and use the lot/cell data to manage reservations. Operators cannot create new parking lots.
+  </Card>
+</CardGroup>
+
+For a full breakdown of role permissions across the platform, see [User roles](/administration/user-roles).

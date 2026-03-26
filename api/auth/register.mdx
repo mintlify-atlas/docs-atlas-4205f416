@@ -1,0 +1,110 @@
+---
+title: Register
+description: Create a new Parkontrol user account.
+---
+
+Creates a new user in the system. Registration does not return a token — after registering, the user must log in via `POST /api/auth/login` to obtain a JWT.
+
+<Note>
+  The registration endpoint assigns the `ADMINISTRADOR` role to all newly created users.
+</Note>
+
+## Endpoint
+
+```
+POST /api/auth/register
+```
+
+## Request body
+
+<ParamField body="nombre" type="string" required>
+  Full name of the user. Minimum 3 characters.
+</ParamField>
+
+<ParamField body="correo" type="string" required>
+  User's email address. Must be a valid email format. Used as the login identifier.
+</ParamField>
+
+<ParamField body="contrasena" type="string" required>
+  Account password. Minimum 6 characters. Leading and trailing whitespace is stripped automatically.
+</ParamField>
+
+<ParamField body="rol" type="string" required>
+  Role string for the user (e.g. `ADMINISTRADOR`, `OPERADOR`). This value is stored but the service overrides the effective role to `ADMINISTRADOR` at creation time via the auth service.
+</ParamField>
+
+<ParamField body="idEmpresa" type="number" required>
+  ID of the company the user belongs to.
+</ParamField>
+
+## Response
+
+Returns the created user. HTTP status `201 Created`.
+
+<ResponseField name="id" type="number" required>
+  Unique identifier of the newly created user.
+</ResponseField>
+
+<ResponseField name="nombre" type="string" required>
+  Full name of the user.
+</ResponseField>
+
+<ResponseField name="correo" type="string" required>
+  Email address of the user.
+</ResponseField>
+
+<ResponseField name="rol" type="string" required>
+  Role assigned to the user. Will be `ADMINISTRADOR`.
+</ResponseField>
+
+<ResponseField name="idEmpresa" type="number" required>
+  ID of the company the user is associated with.
+</ResponseField>
+
+## Example request
+
+```bash
+curl -X POST http://localhost:3000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nombre": "Ana Torres",
+    "correo": "ana.torres@empresa.com",
+    "contrasena": "secreto123",
+    "rol": "ADMINISTRADOR",
+    "idEmpresa": 1
+  }'
+```
+
+## Example response
+
+```json
+{
+  "id": 42,
+  "nombre": "Ana Torres",
+  "correo": "ana.torres@empresa.com",
+  "rol": "ADMINISTRADOR",
+  "idEmpresa": 1
+}
+```
+
+## Error cases
+
+| Status | Cause |
+| --- | --- |
+| `400 Bad Request` | One or more fields fail validation (missing required field, invalid email, password too short, etc.) |
+
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "nombre must be longer than or equal to 3 characters",
+    "correo must be an email",
+    "contrasena must be longer than or equal to 6 characters"
+  ],
+  "error": "Bad Request"
+}
+```
+
+<Warning>
+  Registration does not return an `access_token`. You must call `POST /api/auth/login` after registration to authenticate.
+</Warning>

@@ -1,0 +1,160 @@
+---
+title: "Architecture"
+description: "How the Parkontrol frontend, backend, and database are structured and how they interact."
+---
+
+Parkontrol follows a classic three-tier architecture: an Angular single-page application handles the user interface, a NestJS REST API processes business logic, and an Oracle Database provides persistent storage. Each tier has a clear responsibility and communicates only through well-defined interfaces.
+
+## System overview
+
+<CardGroup cols={3}>
+  <Card title="Frontend" icon="browser" href="/deployment/frontend-setup">
+    Angular 20 SPA with Angular Material UI, lazy-loaded routes, and role-based access guards. Runs on port 4200.
+  </Card>
+  <Card title="Backend" icon="server" href="/deployment/backend-setup">
+    NestJS 11 REST API with JWT authentication, ValidationPipe, and modular domain structure. Runs on port 3000 under the `/api` prefix.
+  </Card>
+  <Card title="Database" icon="database" href="/deployment/environment-variables">
+    Oracle Database accessed through TypeORM with connection pooling. Schema management is handled manually — `synchronize` is disabled.
+  </Card>
+</CardGroup>
+
+## Frontend (Angular)
+
+The frontend is a standalone Angular 20 application built with Angular Material components. All routes are lazy-loaded, meaning each page module is fetched from the server only when the user navigates to it. This keeps the initial bundle small and improves load performance for large deployments.
+
+### Route structure and access control
+
+Two route guards enforce security at the navigation level:
+
+- **`authGuard`** — Wraps all authenticated routes inside the `LayoutComponent` shell. Any unauthenticated user attempting to access a protected route is redirected to `/login`.
+- **`roleGuard`** — Applied to individual routes that are restricted to specific roles. Each route carries a `data.roles` array declaring which roles may access it.
+
+The table below summarizes which routes each role can access:
+
+| Route | ADMINISTRADOR | OPERADOR |
+|---|---|---|
+| `/dashboard` | Yes | — |
+| `/operador-dashboard` | — | Yes |
+| `/parqueaderos` | Yes | Yes |
+| `/celdas` | Yes | Yes |
+| `/vehiculos` | Yes | Yes |
+| `/reservas` | Yes | Yes |
+| `/usuarios` | Yes | — |
+| `/tarifas` | Yes | — |
+| `/pagos` | Yes | — |
+| `/facturacion` | Yes | — |
+| `/vistas` | Yes | — |
+
+### JWT decode
+
+After login, the frontend stores the JWT token and uses the `jwt-decode` library (v4) to read the user's role directly from the token payload. No separate profile endpoint is needed to determine access level — the role is embedded in the token and consumed by `roleGuard` at navigation time.
+
+## Backend (NestJS)
+
+The backend is a NestJS 11 application organized into feature modules. Each module encapsulates its own controllers, services, and TypeORM entities, keeping domain concerns isolated.
+
+### Module structure
+
+```typescript
+// src/app.module.ts — registered feature modules
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRootAsync({ ... }),  // Oracle connection
+    SharedModule,       // Shared utilities and providers
+    AuthModule,         // JWT authentication and strategy
+    EmpresasModule,     // Company management
+    UsuariosModule,     // User management
+    ParqueaderosModule, // Parking lot management
+    CeldasModule,       // Parking cell (space) management
+    VehiculosModule,    // Vehicle registry
+    TarifasModule,      // Rate configuration
+    ReservasModule,     // Reservation lifecycle
+    PagosModule,        // Payment processing
+    FacturacionModule,  // Invoice generation
+    ReportesModule,     // Reporting and analytics
+    VistasModule,       // Database views and aggregations
+  ],
+})
+export class AppModule {}
+```
+
+### Global configuration
+
+- **API prefix**: All endpoints are served under `/api` (e.g., `POST /api/auth/login`, `GET /api/parqueaderos`).
+- **ValidationPipe**: Applied globally with `whitelist: true` and `transform: true`. Incoming request bodies are stripped of undeclared properties and automatically coerced to their declared types.
+- **CORS**: The API accepts requests from `http://localhost:4200` (Angular dev server), `http://localhost:5173`, and `http://localhost:5174`. All standard HTTP methods and the `Authorization` header are permitted.
+
+### Available API modules
+
+| Module | Responsibility |
+|---|---|
+| `auth` | Login, registration, JWT issuance |
+| `empresas` | Company CRUD |
+| `usuarios` | User accounts and role assignment |
+| `parqueaderos` | Parking lot CRUD |
+| `celdas` | Cell CRUD, status tracking |
+| `vehiculos` | Vehicle registry |
+| `tarifas` | Rate rules per vehicle type and period |
+| `reservas` | Reservation open/close lifecycle |
+| `pagos` | Payment registration |
+| `facturacion` | Invoice creation and retrieval |
+| `reportes` | Aggregated reports and summaries |
+| `vistas` | Precomputed database views |
+
+## Data layer
+
+Parkontrol uses **Oracle Database** as its persistent store, accessed through **TypeORM 0.3** via the `oracledb` driver (v6).
+
+### Connection configuration
+
+The database connection is configured through environment variables loaded by `@nestjs/config`:
+
+```typescript
+// Connection settings pulled from environment
+{
+  type: 'oracle',
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT),
+  username: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD,
+  sid: process.env.DB_SID,
+  synchronize: false,   // Schema is managed manually
+  autoLoadEntities: true,
+  extra: {
+    poolMin: 1,
+    poolMax: 1,
+    poolIncrement: 0,
+  },
+}
+```
+
+### Connection pooling
+
+The Oracle connection pool is intentionally constrained: `poolMin: 1`, `poolMax: 1`, `poolIncrement: 0`. This means the application maintains exactly one connection at all times and does not scale the pool under load. This is a suitable configuration for single-instance, low-concurrency deployments. Review these settings if you expect high concurrent request volumes.
+
+### Schema management
+
+`synchronize: false` means TypeORM will never automatically create or alter database tables. All schema changes must be applied to Oracle manually or through a migration process. This protects production data from unintended structural changes on startup.
+
+## Security
+
+### JWT-based authentication
+
+The `AuthModule` uses `@nestjs/jwt` and `passport-jwt` to issue and validate JSON Web Tokens. On login, the backend signs a token containing the user's identity and role. The frontend stores this token and sends it in the `Authorization: Bearer <token>` header on every subsequent request.
+
+The `roleGuard` on the frontend and the JWT strategy on the backend work together: the frontend prevents unauthorized navigation, and the backend independently validates the token on every API call.
+
+### Password hashing
+
+User passwords are hashed with **bcrypt** (v6) before storage. Plain-text passwords are never persisted to the database.
+
+### Role-based access
+
+Two roles are defined in the system:
+
+- **ADMINISTRADOR** — Full access to all routes, including user management, rate configuration, payments, invoicing, and reports.
+- **OPERADOR** — Access to operational routes: parking lots, cells, vehicles, and reservations.
+
+See [User roles](/administration/user-roles) for a complete breakdown of permissions.

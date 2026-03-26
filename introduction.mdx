@@ -1,0 +1,71 @@
+---
+title: "Welcome to Parkontrol"
+description: "A full-stack parking lot management platform for companies to control spaces, manage reservations, process payments, and generate invoices."
+---
+
+Parkontrol is a comprehensive parking management system that gives your company complete control over every aspect of your parking operations — from space-level tracking to electronic invoicing.
+
+Whether you run a single parking lot or manage multiple facilities across your organization, Parkontrol provides the tools your team needs to operate efficiently.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Set up Parkontrol and complete your first reservation in minutes
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand how the frontend, backend, and database work together
+  </Card>
+  <Card title="Core Features" icon="star" href="/features/parking-lots">
+    Explore parking management, reservations, payments, and reporting
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/auth/overview">
+    Integrate directly with the Parkontrol REST API
+  </Card>
+</CardGroup>
+
+## What you can do with Parkontrol
+
+<CardGroup cols={2}>
+  <Card title="Manage Parking Lots" icon="square-parking" href="/features/parking-lots">
+    Create and configure parking lots with individual cell-level tracking and sensor integration
+  </Card>
+  <Card title="Handle Reservations" icon="calendar-check" href="/features/reservations">
+    Create reservations, track active sessions, and finalize checkouts in real time
+  </Card>
+  <Card title="Process Payments" icon="credit-card" href="/features/payments-invoicing">
+    Accept cash, card, and bank transfer payments with automatic invoice generation
+  </Card>
+  <Card title="Generate Reports" icon="chart-bar" href="/features/reports">
+    Analyze parking activity and revenue across all your facilities
+  </Card>
+  <Card title="User Roles" icon="users" href="/administration/user-roles">
+    Control access with Administrator and Operator role assignments
+  </Card>
+  <Card title="Rate Configuration" icon="tags" href="/administration/rates-configuration">
+    Set flexible pricing rules per vehicle type and time period
+  </Card>
+</CardGroup>
+
+## Who uses Parkontrol
+
+- **Administrators** — Manage companies, configure parking lots, set rates, view reports, and oversee all operations
+- **Operators** — Handle day-to-day operations: check vehicles in and out, manage reservations, and process payments
+
+## Getting started
+
+<Steps>
+  <Step title="Deploy the backend">
+    Set up the NestJS API server with your Oracle Database connection. See [Backend Setup](/deployment/backend-setup).
+  </Step>
+  <Step title="Deploy the frontend">
+    Configure and run the Angular application pointing to your API. See [Frontend Setup](/deployment/frontend-setup).
+  </Step>
+  <Step title="Create your company and admin account">
+    Register your organization and set up your first Administrator user.
+  </Step>
+  <Step title="Configure your parking lot">
+    Add your parking lot, define cells, assign sensors, and set rates.
+  </Step>
+  <Step title="Start accepting reservations">
+    Operators can log in and begin managing vehicles and payments.
+  </Step>
+</Steps>

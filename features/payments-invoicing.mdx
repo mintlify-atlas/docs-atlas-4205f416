@@ -1,0 +1,185 @@
+---
+title: Payments & invoicing
+description: Process payments for completed reservations, issue electronic invoices, and manage billing contacts.
+---
+
+## Overview
+
+Payments and invoices follow a strict chain in Parkontrol:
+
+```
+Reservation (CERRADA)
+  └── Payment
+        └── Electronic Invoice
+              └── Billing Client (ClienteFactura)
+```
+
+A payment is created after a reservation is finalized. An electronic invoice can then be issued against that payment and sent to a registered billing client. Each reservation has at most one payment, and each payment has at most one invoice.
+
+<Note>
+  Access to the Payments page is limited to users with the **Administrator** role.
+</Note>
+
+## Payment methods
+
+Parkontrol supports three payment methods. These are pre-seeded in the database and referenced by ID when creating a payment:
+
+<CardGroup cols={3}>
+  <Card title="EFECTIVO" icon="banknote">
+    Cash payment collected in person at the parking facility.
+  </Card>
+  <Card title="TARJETA" icon="credit-card">
+    Card payment (debit or credit).
+  </Card>
+  <Card title="TRANSFERENCIA" icon="arrow-right-left">
+    Bank transfer or electronic funds transfer.
+  </Card>
+</CardGroup>
+
+## Creating a payment
+
+Payments can be created in two ways: directly from the **Reservations** page when finalizing a reservation, or independently from the **Payments** page.
+
+<Tabs>
+  <Tab title="From the Reservations page">
+    When you click **Finalize** on an open reservation, a payment modal opens automatically. You select the payment method and the system calculates the amount based on the parking rate for the vehicle type and duration. The reservation is closed and the payment is recorded in a single flow.
+  </Tab>
+  <Tab title="From the Payments page">
+    On the **Payments** page, click **New Payment**. A modal asks for:
+
+    - **Reservation ID** — The ID of the reservation to pay for. The reservation must exist and be in `ABIERTA` state at the time of payment.
+    - **Payment Method** — One of EFECTIVO, TARJETA, or TRANSFERENCIA.
+
+    The system calculates the `monto` (amount) automatically based on the applicable rate for the vehicle type and parking duration. You do not enter the amount manually.
+  </Tab>
+</Tabs>
+
+<Warning>
+  A payment can only be created for a reservation that is currently **ABIERTA**. The system also rejects duplicate payments — only one payment is allowed per reservation. If a payment already exists, you will see the error: "Ya existe un pago registrado para esta reserva."
+</Warning>
+
+### Payment data recorded
+
+| Field | Description |
+|-------|-------------|
+| ID | Auto-generated payment identifier |
+| Reservation | The reservation this payment settles |
+| Method | EFECTIVO, TARJETA, or TRANSFERENCIA |
+| Amount | Calculated from the rate configuration for the vehicle type |
+| Payment Date | Timestamp recorded automatically at creation |
+
+<Info>
+  If no rate is configured for the vehicle type in the parking lot, the payment will fail with an error referencing "tarifa". Contact your Administrator to configure rates under [Rates configuration](/administration/rates-configuration).
+</Info>
+
+## Viewing payments
+
+The Payments page shows all payments for the selected parking lot. Use the lot filter at the top to switch between facilities. Each row in the table displays:
+
+| Column | Description |
+|--------|-------------|
+| ID | Payment identifier |
+| Reservation ID | The reservation this payment is linked to |
+| Amount | Total amount charged |
+| Payment Date | Date and time the payment was processed |
+| Payment Method | The method used (EFECTIVO, TARJETA, TRANSFERENCIA) |
+| Actions | **Invoice** button to view or look up the invoice for this payment |
+
+## Electronic invoices
+
+A `FacturaElectronica` (electronic invoice) is an official billing document linked to a specific payment. It is generated after the payment is recorded.
+
+### Invoice fields
+
+| Field | Description |
+|-------|-------------|
+| ID | Auto-generated invoice identifier |
+| CUFE | Unique electronic invoice identifier code (required, up to 50 characters) |
+| URL PDF | Optional link to the hosted PDF version of the invoice |
+| Sent | Whether the invoice has been dispatched to the billing client (`Y`/`N`) |
+| Created Date | Timestamp of invoice creation |
+| Payment | The payment this invoice is issued for |
+| Billing Client | The `ClienteFactura` recipient of the invoice |
+
+### Creating an invoice
+
+To issue an invoice for a payment:
+
+<Steps>
+  <Step title="Ensure a billing client exists">
+    The invoice must reference a `ClienteFactura`. Create one first if none exists — see [Billing clients](#billing-clients) below.
+  </Step>
+  <Step title="Provide invoice details">
+    Required fields:
+    - **Payment ID** (`idPago`) — The payment to invoice.
+    - **Billing Client ID** (`idClienteFactura`) — The recipient.
+    - **CUFE** — The unique electronic invoice code.
+    - **URL PDF** (optional) — Link to the PDF document.
+  </Step>
+  <Step title="Submit">
+    The invoice is created with `enviada` set to unset (not yet sent). The creation timestamp is recorded automatically.
+  </Step>
+</Steps>
+
+### Viewing an invoice from the Payments page
+
+Click the **Invoice** button (receipt icon) on any payment row to look up its associated invoice. If no invoice exists for that payment, the modal indicates that no invoice was found.
+
+## Billing clients
+
+A `ClienteFactura` is a billing contact — the person or entity that receives electronic invoices. Billing clients are shared across your company and reused across multiple invoices.
+
+### Billing client fields
+
+| Field | Description |
+|-------|-------------|
+| ID | Auto-generated identifier |
+| Document Type | Type of identification (e.g., NIT, CC) — 2 to 10 characters |
+| Document Number | The identification number — 5 to 20 characters |
+| Email | Valid email address where the invoice is sent |
+
+### Creating a billing client
+
+Use `POST /invoicing/clientes` with the three required fields: `tipoDocumento`, `numeroDocumento`, and `correo`. All are required and validated (the email field must be a valid email format).
+
+You can retrieve the full list of registered billing clients via `GET /invoicing/clientes`.
+
+## Sending invoices
+
+Once an invoice has been issued and the PDF is available, you can mark it as sent to the billing client.
+
+<Steps>
+  <Step title="Locate the invoice">
+    Retrieve the invoice by payment ID using `GET /invoicing/facturas/pago/:idPago`.
+  </Step>
+  <Step title="Mark as sent">
+    Call `PATCH /invoicing/facturas/:id/enviar`. This updates the `enviada` flag on the invoice record, indicating the document has been dispatched.
+  </Step>
+</Steps>
+
+<Tip>
+  Use the `urlPdf` field on the invoice to store a link to the hosted PDF. This makes it easy to retrieve and share the document after the invoice is sent.
+</Tip>
+
+## Who can manage payments
+
+The Payments page is restricted to the **Administrator** role. Operators do not have access to payment or invoicing screens. However, Operators can trigger a payment as part of the reservation finalization flow on the Reservations page.
+
+For full role details, see [User roles](/administration/user-roles).
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Reservations" icon="calendar" href="/features/reservations">
+    Payments are triggered when finalizing a reservation.
+  </Card>
+  <Card title="Rates configuration" icon="sliders" href="/administration/rates-configuration">
+    Payment amounts are calculated from the rate rules configured per vehicle type.
+  </Card>
+  <Card title="API: Payments" icon="code" href="/api/payments">
+    Full reference for the payments API endpoints.
+  </Card>
+  <Card title="API: Invoicing" icon="code" href="/api/invoicing">
+    Full reference for the invoicing API endpoints.
+  </Card>
+</CardGroup>

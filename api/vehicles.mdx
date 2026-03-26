@@ -1,0 +1,183 @@
+---
+title: "Vehicles"
+description: "Register vehicles and look them up by plate number or ID. Vehicle records are used to track parking sessions and generate invoices."
+---
+
+All endpoints require a valid JWT in the `Authorization` header.
+
+<Note>
+  Plates are stored and matched in uppercase. Submitting `abc123` is equivalent to `ABC123`.
+</Note>
+
+### Vehicle types
+
+| ID | Name | Description |
+|---|---|---|
+| 1 | `AUTOMOVIL` | Standard passenger car. |
+| 2 | `MOTOCICLETA` | Motorcycle. |
+
+---
+
+## POST /api/vehicles
+
+Register a new vehicle. The plate must be unique across the system.
+
+**Request body**
+
+<ParamField body="placa" type="string" required>
+  License plate number. Between 3 and 10 characters. Stored as uppercase.
+</ParamField>
+
+<ParamField body="idTipoVehiculo" type="number" required>
+  ID of the vehicle type. Use `1` for `AUTOMOVIL` or `2` for `MOTOCICLETA`.
+</ParamField>
+
+**Response**
+
+<ResponseField name="id" type="number">
+  Unique identifier of the registered vehicle.
+</ResponseField>
+
+<ResponseField name="placa" type="string">
+  License plate in uppercase.
+</ResponseField>
+
+<ResponseField name="tipoVehiculo" type="object">
+  The vehicle type.
+  <Expandable title="tipoVehiculo fields">
+    <ResponseField name="id" type="number">Vehicle type ID.</ResponseField>
+    <ResponseField name="nombre" type="string">Vehicle type name (`AUTOMOVIL` or `MOTOCICLETA`).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Warning>
+  Returns `409 Conflict` if a vehicle with the same plate already exists.
+</Warning>
+
+<Warning>
+  Returns `404 Not Found` if the given `idTipoVehiculo` does not match any known vehicle type.
+</Warning>
+
+**Example**
+
+```bash
+curl -X POST http://localhost:3000/api/vehicles \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"placa": "ABC123", "idTipoVehiculo": 1}'
+```
+
+```json
+{
+  "id": 7,
+  "placa": "ABC123",
+  "tipoVehiculo": {
+    "id": 1,
+    "nombre": "AUTOMOVIL"
+  }
+}
+```
+
+---
+
+## GET /api/vehicles/placa/:placa
+
+Look up a vehicle by its license plate. The lookup is case-insensitive — the plate is normalized to uppercase before querying.
+
+**Path parameters**
+
+<ParamField path="placa" type="string" required>
+  License plate to search for (e.g., `ABC123`).
+</ParamField>
+
+**Response**
+
+<ResponseField name="id" type="number">
+  Unique identifier of the vehicle.
+</ResponseField>
+
+<ResponseField name="placa" type="string">
+  License plate in uppercase.
+</ResponseField>
+
+<ResponseField name="tipoVehiculo" type="object">
+  The vehicle type.
+  <Expandable title="tipoVehiculo fields">
+    <ResponseField name="id" type="number">Vehicle type ID.</ResponseField>
+    <ResponseField name="nombre" type="string">Vehicle type name (`AUTOMOVIL` or `MOTOCICLETA`).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Warning>
+  Returns `404 Not Found` if no vehicle with that plate exists.
+</Warning>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/vehicles/placa/ABC123 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+{
+  "id": 7,
+  "placa": "ABC123",
+  "tipoVehiculo": {
+    "id": 1,
+    "nombre": "AUTOMOVIL"
+  }
+}
+```
+
+---
+
+## GET /api/vehicles/:id
+
+Retrieve a vehicle by its numeric ID.
+
+**Path parameters**
+
+<ParamField path="id" type="number" required>
+  ID of the vehicle.
+</ParamField>
+
+**Response**
+
+<ResponseField name="id" type="number">
+  Unique identifier of the vehicle.
+</ResponseField>
+
+<ResponseField name="placa" type="string">
+  License plate in uppercase.
+</ResponseField>
+
+<ResponseField name="tipoVehiculo" type="object">
+  The vehicle type.
+  <Expandable title="tipoVehiculo fields">
+    <ResponseField name="id" type="number">Vehicle type ID.</ResponseField>
+    <ResponseField name="nombre" type="string">Vehicle type name (`AUTOMOVIL` or `MOTOCICLETA`).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Warning>
+  Returns `404 Not Found` if no vehicle exists with the given `id`.
+</Warning>
+
+**Example**
+
+```bash
+curl http://localhost:3000/api/vehicles/7 \
+  -H "Authorization: Bearer <token>"
+```
+
+```json
+{
+  "id": 7,
+  "placa": "ABC123",
+  "tipoVehiculo": {
+    "id": 1,
+    "nombre": "AUTOMOVIL"
+  }
+}
+```

@@ -1,0 +1,123 @@
+---
+title: 'Frontend setup'
+description: 'Install and run the Parkontrol Angular frontend application.'
+---
+
+The Parkontrol frontend is an Angular 20 single-page application that communicates with the backend REST API.
+
+## Prerequisites
+
+Before you begin, make sure you have the following:
+
+- **Node.js 18 or later** — [nodejs.org](https://nodejs.org)
+- **npm** — included with Node.js
+- **Angular CLI** — install globally with `npm install -g @angular/cli`
+- **Running backend** — the Parkontrol backend must be accessible at `http://localhost:3000` (or your configured URL) before you log in
+
+## Setup
+
+<Steps>
+  <Step title="Navigate to the frontend directory">
+    From the repository root:
+
+    ```bash
+    cd parkontrol_web-main/frontend-angular
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+
+  <Step title="Configure the API URL">
+    The frontend reads the backend URL from `src/environments/environment.ts`. By default it points to the local backend:
+
+    ```typescript
+    export const environment = {
+      production: false,
+      urlApi: 'http://localhost:3000/api'
+    };
+    ```
+
+    If your backend runs on a different host or port, update `urlApi` to match. For production builds, create or update `src/environments/environment.prod.ts` with your production backend URL and ensure it is referenced in `angular.json` under the `production` file replacements.
+
+    <Note>
+      All API requests from the frontend are sent to the `urlApi` value. This must exactly match the address where the backend is running, including the `/api` path prefix.
+    </Note>
+  </Step>
+
+  <Step title="Start the development server">
+    ```bash
+    ng serve
+    ```
+
+    Or using the npm script:
+
+    ```bash
+    npm start
+    ```
+
+    The application opens at:
+
+    ```
+    http://localhost:4200
+    ```
+
+    The dev server automatically reloads when you save source files.
+  </Step>
+
+  <Step title="Log in">
+    Navigate to `http://localhost:4200/login` and enter your credentials. You must have a user account in the system — see [User roles](/administration/user-roles) for how accounts are managed.
+
+    <Tip>
+      Make sure the backend is running and the database is connected before attempting to log in. A failed login is most commonly caused by the backend being unreachable.
+    </Tip>
+  </Step>
+</Steps>
+
+## Building for production
+
+To create an optimized production build:
+
+```bash
+npm run build
+```
+
+This compiles and bundles the application into the `dist/frontend-angular/` directory with:
+
+- Minified and tree-shaken JavaScript
+- Output hashing on all assets for cache busting
+- SCSS compiled to CSS
+
+Deploy the contents of `dist/frontend-angular/browser/` to any static file host or web server (nginx, Apache, S3, Netlify, etc.). Configure your server to redirect all routes to `index.html` to support Angular's client-side routing.
+
+<Warning>
+  The `dist/` directory is excluded from version control. Always run `npm run build` on your deployment target or in CI before deploying.
+</Warning>
+
+## Running tests
+
+The frontend uses Karma with Jasmine for unit tests, with code coverage enabled by default:
+
+```bash
+npm test
+```
+
+This opens a Chrome browser window that runs the test suite and reports results. Coverage output is written to the `coverage/` directory.
+
+<Note>
+  The Karma test runner requires Chrome or Chromium to be installed. In headless CI environments, use `ng test --watch=false --browsers=ChromeHeadless`.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Backend setup" icon="server" href="/deployment/backend-setup">
+    Set up the NestJS backend that powers the API.
+  </Card>
+  <Card title="Environment variables" icon="sliders" href="/deployment/environment-variables">
+    Reference for all backend environment variables.
+  </Card>
+</CardGroup>

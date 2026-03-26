@@ -1,0 +1,150 @@
+---
+title: 'Backend setup'
+description: 'Install and run the Parkontrol NestJS backend server.'
+---
+
+The Parkontrol backend is a NestJS 11 application that connects to an Oracle database and exposes a REST API at `/api`.
+
+## Prerequisites
+
+Before you begin, make sure you have the following:
+
+- **Node.js 18 or later** — [nodejs.org](https://nodejs.org)
+- **npm** — included with Node.js
+- **Oracle Database instance** — running and accessible from the machine where you will run the backend
+
+<Note>
+  Your Oracle database must be reachable before starting the backend. The server will fail to connect at startup if the database is unavailable. Make sure you have the host, port, username, password, and SID ready.
+</Note>
+
+## Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    If you have not already, clone the Parkontrol repository and navigate to the backend directory:
+
+    ```bash
+    git clone https://github.com/OnemaYepes/parkontrol_web-main.git
+    cd parkontrol_web-main/backend
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    Install all Node.js dependencies:
+
+    ```bash
+    npm install
+    ```
+  </Step>
+
+  <Step title="Configure environment variables">
+    Create a `.env` file in the `backend/` directory with your database credentials and other required settings. See [Environment variables](/deployment/environment-variables) for the full list of required and optional variables.
+
+    ```bash
+    # backend/.env
+    DB_HOST=your-oracle-host
+    DB_PORT=1521
+    DB_USERNAME=your_username
+    DB_PASSWORD=your_password
+    DB_SID=your_sid
+    JWT_SECRET=your_jwt_secret
+    PORT=3000
+    ```
+
+    <Warning>
+      Never commit your `.env` file to version control. It is already listed in `.gitignore`.
+    </Warning>
+  </Step>
+
+  <Step title="Start the server">
+    Choose the mode that matches your use case:
+
+    <CodeGroup>
+
+    ```bash Development
+    npm run start:dev
+    ```
+
+    ```bash Production
+    npm run build
+    npm run start:prod
+    ```
+
+    ```bash Debug
+    npm run start:debug
+    ```
+
+    </CodeGroup>
+
+    - **Development** — starts the server with hot-reload using `nest start --watch`. Use this while actively making changes.
+    - **Production** — compiles TypeScript to `dist/` first, then runs the compiled output with Node.js. Use this for deployed environments.
+    - **Debug** — attaches the Node.js inspector for step-through debugging.
+  </Step>
+
+  <Step title="Verify the server is running">
+    Once started, the API is available at:
+
+    ```
+    http://localhost:3000/api
+    ```
+
+    You can confirm the server is up by making a request to the API base path or any known endpoint:
+
+    ```bash
+    curl http://localhost:3000/api
+    ```
+
+    If the server started successfully, you will receive a response (even if it is an empty body or a `404` for an unknown path — a connection error means the server is not running).
+
+    <Tip>
+      The `PORT` environment variable overrides the default port of `3000`. If you set `PORT=8080`, the API will be at `http://localhost:8080/api`.
+    </Tip>
+  </Step>
+</Steps>
+
+## CORS configuration
+
+The backend is pre-configured to accept cross-origin requests from the following origins:
+
+- `http://localhost:4200` — Angular development server
+- `http://localhost:5173` — Vite dev server (port 1)
+- `http://localhost:5174` — Vite dev server (port 2)
+
+If you serve the frontend from a different origin in your environment, you will need to update the `enableCors` call in `backend/src/main.ts`.
+
+## Running tests
+
+The backend uses Jest for unit and end-to-end tests.
+
+<CodeGroup>
+
+```bash Unit tests
+npm run test
+```
+
+```bash Unit tests with coverage
+npm run test:cov
+```
+
+```bash End-to-end tests
+npm run test:e2e
+```
+
+```bash Watch mode
+npm run test:watch
+```
+
+</CodeGroup>
+
+Coverage reports are written to the `../coverage/` directory (one level above `backend/`).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Frontend setup" icon="monitor" href="/deployment/frontend-setup">
+    Set up and run the Angular frontend that connects to this backend.
+  </Card>
+  <Card title="Environment variables" icon="sliders" href="/deployment/environment-variables">
+    Full reference for all backend environment variables.
+  </Card>
+</CardGroup>
